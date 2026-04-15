@@ -274,13 +274,13 @@ final class AppState {
 
         if let projectId = selectingProjectId,
            let project = projects.first(where: { $0.id == projectId }) {
-            await selectProject(project, in: window)
+            selectProject(project, in: window)
         } else if let savedId = UserDefaults.standard.string(forKey: "selectedProjectId"),
                   let uuid = UUID(uuidString: savedId),
                   let project = projects.first(where: { $0.id == uuid }) {
-            await selectProject(project, in: window)
+            selectProject(project, in: window)
         } else if let first = projects.first {
-            await selectProject(first, in: window)
+            selectProject(first, in: window)
         }
 
         window.isInitialized = true
@@ -1174,32 +1174,26 @@ final class AppState {
         }
     }
 
-    func selectProject(_ project: Project, in window: WindowState) async {
+    func selectProject(_ project: Project, in window: WindowState) {
         guard window.selectedProject?.id != project.id else { return }
 
         if isStreaming(in: window) {
             detachCurrentStream(in: window)
         }
 
-        // Save the current foreground session
         if let currentId = window.currentSessionId,
            let currentProject = window.selectedProject,
            let state = sessionStates[currentId],
            !state.messages.isEmpty {
             let title = allSessionSummaries.first(where: { $0.id == currentId })?.title ?? "Session"
             let session = ChatSession(id: currentId, projectId: currentProject.id, title: title, messages: state.messages, updatedAt: lastResponseDate(from: state.messages))
-            do { try await persistence.saveSession(session) }
-            catch { logger.error("Failed to save current session before project switch: \(error.localizedDescription)") }
-        }
-
-        // Remember the last session of the current project
-        if let outgoingProject = window.selectedProject,
-           let sessionId = window.currentSessionId {
-            window.lastSessionPerProject[outgoingProject.id] = sessionId
+            Task {
+                do { try await self.persistence.saveSession(session) }
+                catch { self.logger.error("Failed to save current session before project switch: \(error.localizedDescription)") }
+            }
         }
 
         window.selectedProject = project
-        // Clean up non-streaming session states
         for (key, state) in sessionStates where !state.isStreaming {
             sessionStates.removeValue(forKey: key)
         }
@@ -1207,12 +1201,13 @@ final class AppState {
 
         UserDefaults.standard.set(project.id.uuidString, forKey: "selectedProjectId")
 
-        await loadSessionHistory(in: window)
+        // Always start a new session on project switch — instant, no message loading
+        startNewChat(in: window)
 
-        // Return to the last session
-        if let savedSessionId = window.lastSessionPerProject[project.id],
-           let summary = allSessionSummaries.first(where: { $0.id == savedSessionId }) {
-            await resumeSession(summary.makeSession(), in: window)
+        // Refresh session history in the background
+        Task { [weak self] in
+            guard let self else { return }
+            await loadSessionHistory(in: window)
         }
     }
 
@@ -1266,7 +1261,7 @@ final class AppState {
     private func addAndSelectProject(name: String, path: String, gitHubRepo: String? = nil, in window: WindowState) async {
         await addProject(name: name, path: path, gitHubRepo: gitHubRepo)
         if let project = projects.last {
-            await selectProject(project, in: window)
+            selectProject(project, in: window)
         }
     }
 
@@ -1283,6 +1278,7 @@ final class AppState {
 
     private func switchToSession(_ session: ChatSession, messages loadedMessages: [ChatMessage]? = nil, in window: WindowState) {
         saveDraft(in: window)
+        saveQueue(in: window)
 
         if isStreaming(in: window) {
             detachCurrentStream(in: window)
@@ -1314,6 +1310,7 @@ final class AppState {
 
         window.currentSessionId = session.id
         window.inputText = window.draftTexts[session.id] ?? ""
+        window.messageQueue = window.draftQueues[session.id] ?? []
 
         releaseOutgoingSession(outgoingId, excluding: session.id, in: window)
 
@@ -1414,10 +1411,12 @@ final class AppState {
     func startNewChat(in window: WindowState) {
         if isStreaming(in: window) { detachCurrentStream(in: window) }
         saveDraft(in: window)
+        saveQueue(in: window)
         releaseOutgoingSession(window.currentSessionId, in: window)
         window.currentSessionId = nil
         sessionStates.removeValue(forKey: window.newSessionKey)
         window.inputText = window.draftTexts["new"] ?? ""
+        window.messageQueue = window.draftQueues["new"] ?? []
         window.requestInputFocus = true
     }
 
@@ -1460,7 +1459,7 @@ final class AppState {
         if window.selectedProject?.id == project.id {
             let next = projects.first(where: { $0.id != project.id })
             if let next {
-                await selectProject(next, in: window)
+                selectProject(next, in: window)
             } else {
                 window.selectedProject = nil
                 window.currentSessionId = nil
@@ -1539,7 +1538,7 @@ final class AppState {
         window.setSessionSwitchTask(Task { [weak self] in
             guard let self else { return }
             guard !Task.isCancelled else { return }
-            await selectProject(project, in: window)
+            selectProject(project, in: window)
             guard !Task.isCancelled else { return }
             if let s = allSessionSummaries.first(where: { $0.id == id }) {
                 let session = ChatSession(id: s.id, projectId: s.projectId, title: s.title, messages: [], isPinned: s.isPinned)
@@ -1707,6 +1706,12 @@ final class AppState {
         let trimmed = window.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { window.draftTexts.removeValue(forKey: key) }
         else { window.draftTexts[key] = window.inputText }
+    }
+
+    private func saveQueue(in window: WindowState) {
+        let key = window.currentSessionId ?? "new"
+        if window.messageQueue.isEmpty { window.draftQueues.removeValue(forKey: key) }
+        else { window.draftQueues[key] = window.messageQueue }
     }
 
     private func handleError(_ error: Error, in window: WindowState) {

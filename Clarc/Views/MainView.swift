@@ -169,44 +169,16 @@ struct MainView: View {
         HStack(spacing: 12) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 4) {
+                    // isSelected is computed here and passed as a value so ProjectTabButton.body
+                    // does not access windowState.selectedProject — only the 2 changed buttons re-render.
                     ForEach(appState.projects) { project in
-                        let isSelected = windowState.selectedProject?.id == project.id
-                        Button {
-                            Task { await appState.selectProject(project, in: windowState) }
-                        } label: {
-                            HStack(spacing: 5) {
-                                Image(systemName: "folder.fill")
-                                    .font(.system(size: 11))
-                                Text(project.name)
-                                    .font(.system(size: 13, weight: .medium))
-                                    .lineLimit(1)
-                            }
-                            .foregroundStyle(isSelected ? ClaudeTheme.textOnAccent : ClaudeTheme.textSecondary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(
-                                isSelected ? ClaudeTheme.accent : ClaudeTheme.surfaceSecondary,
-                                in: RoundedRectangle(cornerRadius: ClaudeTheme.cornerRadiusSmall)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .onTapGesture(count: 2) {
-                            openWindow(id: "project-window", value: project.id)
-                        }
-                        .contextMenu {
-                            Button {
-                                renameText = project.name
-                                projectToRename = project
-                            } label: {
-                                Label("Rename Project", systemImage: "pencil")
-                            }
-                            Divider()
-                            Button(role: .destructive) {
-                                projectToDelete = project
-                            } label: {
-                                Label("Delete Project", systemImage: "trash")
-                            }
-                        }
+                        ProjectTabButton(
+                            project: project,
+                            isSelected: windowState.selectedProject?.id == project.id,
+                            projectToDelete: $projectToDelete,
+                            projectToRename: $projectToRename,
+                            renameText: $renameText
+                        )
                     }
                 }
             }
@@ -295,54 +267,10 @@ struct MainView: View {
         .focusedValue(\.startNewChat) {
             appState.startNewChat(in: windowState)
         }
-        .toolbar {
-            ToolbarItemGroup(placement: .confirmationAction) {
-                ControlGroup {
-                    Button {
-                        appState.startNewChat(in: windowState)
-                    } label: {
-                        Image(systemName: "square.and.pencil")
-                    }
-                    .help("New Chat")
-                    Button {
-                        showCommandManager = true
-                    } label: {
-                        Text("/")
-                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                    }
-                    .help("Manage Slash Commands")
-
-
-                    if windowState.selectedProject != nil {
-                        Button {
-                            showShortcutManager = true
-                        } label: {
-                            Image(systemName: "bolt.fill")
-                        }
-                        .help("Manage Shortcuts")
-                    }
-                }
-
-
-                Button {
-                    windowState.showInspector.toggle()
-                } label: {
-                    Image(systemName: "sidebar.trailing")
-                }
-                .help("Toggle Inspector")
-                .keyboardShortcut("4", modifiers: .command)
-
-                Button {
-                    openSettings()
-                } label: {
-                    Image(systemName: "gearshape")
-                }
-                .help("Settings")
-            }
-
-
+        // Toolbar is in an isolated struct so NSToolbar does not re-layout on project switches.
+        .background {
+            DetailToolbar(showCommandManager: $showCommandManager, showShortcutManager: $showShortcutManager)
         }
-
     }
 
     // MARK: - Inspector Panel (Terminal + Memo with tabs)
@@ -401,6 +329,115 @@ struct MainView: View {
     private func handleFolderSelection(_ result: Result<[URL], Error>) {
         guard case .success(let urls) = result, let url = urls.first else { return }
         Task { await appState.addProjectFromFolder(url, in: windowState) }
+    }
+}
+
+// MARK: - Detail Toolbar (isolated struct — no selectedProject dependency, prevents NSToolbar re-layout on project switch)
+
+struct DetailToolbar: View {
+    @Environment(AppState.self) private var appState
+    @Environment(WindowState.self) private var windowState
+    @Binding var showCommandManager: Bool
+    @Binding var showShortcutManager: Bool
+    @Environment(\.openSettings) private var openSettings
+
+    var body: some View {
+        Color.clear
+            .toolbar {
+                ToolbarItemGroup(placement: .confirmationAction) {
+                    ControlGroup {
+                        Button {
+                            appState.startNewChat(in: windowState)
+                        } label: {
+                            Image(systemName: "square.and.pencil")
+                        }
+                        .help("New Chat")
+
+                        Button {
+                            showCommandManager = true
+                        } label: {
+                            Text("/")
+                                .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                        }
+                        .help("Manage Slash Commands")
+
+                        Button {
+                            showShortcutManager = true
+                        } label: {
+                            Image(systemName: "bolt.fill")
+                        }
+                        .help("Manage Shortcuts")
+                    }
+
+                    Button {
+                        windowState.showInspector.toggle()
+                    } label: {
+                        Image(systemName: "sidebar.trailing")
+                    }
+                    .help("Toggle Inspector")
+                    .keyboardShortcut("4", modifiers: .command)
+
+                    Button {
+                        openSettings()
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .help("Settings")
+                }
+            }
+    }
+}
+
+// MARK: - Project Tab Button (isolated — isSelected passed as value, body reads no @Observable properties)
+
+struct ProjectTabButton: View {
+    @Environment(AppState.self) private var appState
+    @Environment(WindowState.self) private var windowState
+    @Environment(\.openWindow) private var openWindow
+
+    let project: Project
+    let isSelected: Bool
+    @Binding var projectToDelete: Project?
+    @Binding var projectToRename: Project?
+    @Binding var renameText: String
+
+    var body: some View {
+        Button {
+            appState.selectProject(project, in: windowState)
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "folder.fill")
+                    .font(.system(size: 11))
+                Text(project.name)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(isSelected ? ClaudeTheme.textOnAccent : ClaudeTheme.textSecondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                isSelected ? ClaudeTheme.accent : ClaudeTheme.surfaceSecondary,
+                in: RoundedRectangle(cornerRadius: ClaudeTheme.cornerRadiusSmall)
+            )
+        }
+        .buttonStyle(.plain)
+        .onTapGesture(count: 2) {
+            openWindow(id: "project-window", value: project.id)
+        }
+        .contextMenu {
+            Button {
+                renameText = project.name
+                projectToRename = project
+            } label: {
+                Label("Rename Project", systemImage: "pencil")
+            }
+            Divider()
+            Button(role: .destructive) {
+                projectToDelete = project
+            } label: {
+                Label("Delete Project", systemImage: "trash")
+            }
+        }
     }
 }
 

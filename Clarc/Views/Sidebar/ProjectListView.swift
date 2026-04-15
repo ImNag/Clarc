@@ -120,7 +120,7 @@ struct ProjectListView: View {
             set: { id in
                 if let id,
                    let project = appState.projects.first(where: { $0.id == id }) {
-                    Task { await appState.selectProject(project, in: windowState) }
+                    appState.selectProject(project, in: windowState)
                 }
             }
         )

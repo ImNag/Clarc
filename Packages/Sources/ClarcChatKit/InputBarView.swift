@@ -95,7 +95,6 @@ struct InputBarView: View {
         .onChange(of: windowState.currentSessionId) { _, _ in
             lastPasteChangeCount = NSPasteboard.general.changeCount
             historyIndex = -1
-            windowState.messageQueue.removeAll()
         }
         .onChange(of: chatBridge.isStreaming) { _, isStreaming in
             if !isStreaming {

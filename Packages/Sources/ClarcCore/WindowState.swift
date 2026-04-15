@@ -44,10 +44,6 @@ public final class WindowState {
     public var selectedProject: Project?
     public var currentSessionId: String?
 
-    // MARK: - Session Memory
-
-    public var lastSessionPerProject: [UUID: String] = [:]
-
     // MARK: - Placeholder Tracking
 
     public private(set) var pendingPlaceholderIds: Set<String> = []
@@ -57,6 +53,7 @@ public final class WindowState {
     public var inputText = ""
     public var attachments: [Attachment] = []
     public var draftTexts: [String: String] = [:]
+    public var draftQueues: [String: [QueuedMessage]] = [:]
     public var skipPasteDetection = false
 
     // MARK: - Message Queue

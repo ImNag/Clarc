@@ -89,6 +89,9 @@ struct MessageListView: View {
                 }
             }
             .padding(.horizontal, 20)
+            // Suppress layout animations when switching sessions so the pulse indicator
+            // doesn't visually jump as StreamingMessageView changes height.
+            .animation(.none, value: windowState.currentSessionId)
 
             Color.clear.frame(height: 1)
                 .padding(.bottom, 16)
@@ -108,6 +111,11 @@ struct MessageListView: View {
             isOlderCollapsed = true
             scrollPosition = ScrollPosition()
             rebuildSettledItems()
+            // Skip scroll/fade delay for empty sessions — appear instantly
+            guard !settledItems.isEmpty else {
+                isSessionReady = true
+                return
+            }
             try? await Task.sleep(for: .milliseconds(16))  // 1 frame: scroll after VStack layout is committed
             scrollPosition.scrollTo(edge: .bottom)
             try? await Task.sleep(for: .milliseconds(32))  // 2 frames: fade-in after scroll settles
