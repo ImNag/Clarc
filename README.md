@@ -1,8 +1,8 @@
 # Clarc
 
-**Claude Code의 네이티브 macOS 데스크톱 클라이언트**
+**Native macOS desktop client for Claude Code**
 
-터미널 기반 CLI를 벗어나, 직관적인 GUI로 Claude Code의 모든 기능을 활용하세요.
+Escape the terminal-based CLI and leverage all Claude Code features through an intuitive GUI.
 
 ![Platform](https://img.shields.io/badge/platform-macOS%2026.2%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6.0-orange)
@@ -10,104 +10,106 @@
 
 ---
 
-## 스크린샷
+## Screenshots
 
-> 스크린샷 추가 예정
-
----
-
-## 주요 기능
-
-| 기능 | 설명 |
-|------|------|
-| **대화형 채팅** | Claude Code와 실시간 스트리밍 대화. Markdown 렌더링, 도구 호출 시각화 |
-| **멀티 프로젝트** | 여러 프로젝트를 등록하고 자유롭게 전환. 프로젝트별 세션 히스토리 |
-| **GitHub 연동** | OAuth 인증, SSH 키 관리, 레포지토리 브라우징 및 클론 |
-| **파일 첨부** | 드래그앤드롭으로 이미지/파일 첨부. 긴 텍스트 자동 첨부 변환 |
-| **슬래시 커맨드** | 확장 가능한 커맨드 시스템 |
-| **권한 관리** | 도구 실행 전 위험도별 승인/거부 UI |
-| **스킬 마켓플레이스** | Anthropic 공식 플러그인 탐색 및 설치 |
-| **모델 선택** | claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5 중 선택 |
-| **사용량 추적** | 세션별 토큰, 비용, 소요 시간 확인 |
-| **내장 터미널** | SwiftTerm 기반 터미널 에뮬레이터 |
-| **파일 탐색** | 프로젝트 파일 트리, Git 상태 확인, 파일 프리뷰 |
+> Screenshots coming soon
 
 ---
 
-## 요구 사항
+## Features
 
-- **macOS 26.2** 이상
-- **[Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)** 설치 필요
-- **Xcode 16** 이상 (빌드 시)
+| Feature | Description |
+|---------|-------------|
+| **Streaming Chat** | Real-time streaming conversation with Claude Code. Markdown rendering, tool call visualization |
+| **Multi-Project** | Register multiple projects and switch freely. Per-project session history |
+| **GitHub Integration** | OAuth authentication, SSH key management, repository browsing and cloning |
+| **File Attachments** | Drag-and-drop image/file attachments. Auto-conversion of long text to attachments |
+| **Slash Commands** | Extensible command system |
+| **Permission Management** | Risk-based approve/deny UI before tool execution |
+| **Skill Marketplace** | Browse and install official Anthropic plugins |
+| **Model Selection** | Choose between claude-opus-4-6, claude-sonnet-4-6, and claude-haiku-4-5 |
+| **Usage Tracking** | Per-session token count, cost, and duration |
+| **Built-in Terminal** | SwiftTerm-based terminal emulator |
+| **File Explorer** | Project file tree, Git status, file preview |
 
 ---
 
-## 설치
+## Requirements
 
-### 직접 빌드
+- **macOS 26.2** or later
+- **[Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)** must be installed
+- **Xcode 16** or later (for building)
+
+---
+
+## Installation
+
+### Build from Source
 
 ```bash
-git clone https://github.com/fineapptech/clarc.git
-cd clarc
+git clone https://github.com/ttnear/Clarc.git
+cd Clarc
 open Clarc.xcodeproj
 ```
 
-Xcode에서 `Cmd+R`로 빌드 및 실행합니다.
+Build and run with `Cmd+R` in Xcode.
 
-### CLI 빌드
+### CLI Build
 
 ```bash
-# Debug 빌드
+# Debug build
 xcodebuild -project Clarc.xcodeproj -scheme Clarc -configuration Debug build
 
-# Release 빌드
+# Release build
 xcodebuild -project Clarc.xcodeproj -scheme Clarc -configuration Release build
 ```
 
 ---
 
-## 아키텍처
+## Architecture
 
 ```
 Clarc/
-├── App/              # 앱 진입점, AppState
-├── Models/           # 데이터 모델 (ChatMessage, Project, StreamEvent 등)
-├── Services/         # 비즈니스 로직 (Actor 기반)
-│   ├── ClaudeService       # Claude CLI 프로세스 관리, NDJSON 스트리밍
-│   ├── GitHubService       # GitHub OAuth, SSH, 레포 관리
-│   ├── PersistenceService  # 파일 기반 JSON 영속화
-│   ├── PermissionServer    # 도구 실행 승인 HTTP 서버
-│   ├── MarketplaceService  # 플러그인 카탈로그 관리
-│   └── RateLimitService    # 사용량 추적, 토큰 갱신
-├── Views/            # SwiftUI 뷰
-│   ├── Chat/         # 채팅 UI, 메시지 버블, 입력창, 마켓플레이스
-│   ├── Sidebar/      # 프로젝트 목록, 세션 히스토리, 파일 트리, Git 상태
-│   ├── Onboarding/   # 초기 설정 플로우
-│   ├── Permission/   # 권한 승인 모달
-│   └── Terminal/     # 내장 터미널 (SwiftTerm)
-├── Theme/            # 커스텀 테마 (라이트/다크 모드)
-├── Resources/        # 한국어 로컬라이제이션
-└── Utilities/        # Git 헬퍼, SSH 키 매니저, Keychain 등
+├── App/              # App entry point, AppState
+├── Services/         # Business logic (Actor-based)
+│   ├── ClaudeService       # Claude CLI process management, NDJSON streaming
+│   ├── GitHubService       # GitHub OAuth, SSH, repository management
+│   ├── PersistenceService  # File-based JSON persistence
+│   ├── PermissionServer    # Tool execution approval HTTP server
+│   ├── MarketplaceService  # Plugin catalog management
+│   └── RateLimitService    # Usage tracking, token refresh
+├── Views/            # SwiftUI views
+│   ├── Chat/         # Chat UI, message bubbles, input bar, marketplace
+│   ├── Sidebar/      # Project list, session history, file tree, Git status
+│   ├── Onboarding/   # Initial setup flow
+│   ├── Permission/   # Permission approval modals
+│   └── Terminal/     # Built-in terminal (SwiftTerm)
+├── Packages/
+│   ├── ClarcCore/    # Shared models, theme, utilities
+│   └── ClarcChatKit/ # Chat UI components
+├── Theme/            # Custom theme (light/dark mode)
+├── Resources/        # Localization (en, ko)
+└── Utilities/        # Git helper, SSH key manager, Keychain, etc.
 ```
 
-**기술 스택:** Swift 6 + SwiftUI, Swift Concurrency (async/await, Actor), SwiftTerm
+**Tech stack:** Swift 6 + SwiftUI, Swift Concurrency (async/await, Actor), SwiftTerm
 
 ---
 
-## 기여하기
+## Contributing
 
-기여를 환영합니다! 버그 리포트, 기능 제안, PR 모두 좋습니다.
+Contributions are welcome! Bug reports, feature requests, and PRs are all appreciated.
 
-1. 이 레포지토리를 포크합니다.
-2. 기능 브랜치를 만듭니다. (`git checkout -b feat/my-feature`)
-3. 변경사항을 커밋합니다. (`git commit -m 'feat: add my feature'`)
-4. 브랜치에 푸시합니다. (`git push origin feat/my-feature`)
-5. Pull Request를 열어주세요.
+1. Fork this repository.
+2. Create a feature branch. (`git checkout -b feat/my-feature`)
+3. Commit your changes. (`git commit -m 'feat: add my feature'`)
+4. Push the branch. (`git push origin feat/my-feature`)
+5. Open a Pull Request.
 
-버그 리포트나 기능 요청은 [GitHub Issues](https://github.com/fineapptech/clarc/issues)를 이용해 주세요.
+For bug reports or feature requests, please use [GitHub Issues](https://github.com/ttnear/Clarc/issues).
 
 ---
 
-## 라이선스
+## License
 
-Apache License 2.0 — 자세한 내용은 [LICENSE](LICENSE) 파일을 참고하세요.
+Apache License 2.0 — see the [LICENSE](LICENSE) file for details.
