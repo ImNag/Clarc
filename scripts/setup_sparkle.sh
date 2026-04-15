@@ -97,7 +97,7 @@ if grep -q "INFOPLIST_KEY_SUPublicEDKey" "$PBXPROJ" 2>/dev/null; then
     echo "✓ SUPublicEDKey가 이미 pbxproj에 있습니다."
 else
     echo "🔧 pbxproj에 SUPublicEDKey 자동 추가 중..."
-    sed -i '' "s|INFOPLIST_KEY_SUFeedURL = \"https://raw.githubusercontent.com/FineAppTech/Clarc/main/appcast.xml\";|INFOPLIST_KEY_SUFeedURL = \"https://raw.githubusercontent.com/FineAppTech/Clarc/main/appcast.xml\";\n\t\t\t\tINFOPLIST_KEY_SUPublicEDKey = \"${PUBLIC_KEY}\";|g" "$PBXPROJ"
+    sed -i '' "s|INFOPLIST_KEY_SUFeedURL = \"https://raw.githubusercontent.com/ttnear/Clarc/main/appcast.xml\";|INFOPLIST_KEY_SUFeedURL = \"https://raw.githubusercontent.com/ttnear/Clarc/main/appcast.xml\";\n\t\t\t\tINFOPLIST_KEY_SUPublicEDKey = \"${PUBLIC_KEY}\";|g" "$PBXPROJ"
     echo "✓ SUPublicEDKey가 pbxproj에 추가되었습니다."
 fi
 

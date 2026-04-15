@@ -282,7 +282,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_SUFeedURL = "https://raw.githubusercontent.com/FineAppTech/Clarc/main/appcast.xml";
+				INFOPLIST_KEY_SUFeedURL = "https://raw.githubusercontent.com/ttnear/Clarc/main/appcast.xml";
 				INFOPLIST_KEY_SUPublicEDKey = "o1+OjC4eJrHnvmfwRxGPhH8OQFD21WYlxkFndh+4J0M=";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -318,7 +318,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_SUFeedURL = "https://raw.githubusercontent.com/FineAppTech/Clarc/main/appcast.xml";
+				INFOPLIST_KEY_SUFeedURL = "https://raw.githubusercontent.com/ttnear/Clarc/main/appcast.xml";
 				INFOPLIST_KEY_SUPublicEDKey = "o1+OjC4eJrHnvmfwRxGPhH8OQFD21WYlxkFndh+4J0M=";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
