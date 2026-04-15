@@ -143,6 +143,9 @@
 "Waiting for authentication..." = "인증 대기 중...";
 "Connected" = "연결됨";
 
+// MARK: - InspectorTabControl
+"Memo" = "메모";
+
 // MARK: - AppState
 "Previous conversation has been compacted" = "이전 대화가 압축되었습니다";
 "No response received" = "응답을 받지 못했습니다";

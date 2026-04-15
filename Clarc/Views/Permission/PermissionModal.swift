@@ -82,7 +82,7 @@ struct PermissionModal: View {
 
     private func detailRow(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label)
+            Text(LocalizedStringKey(label))
                 .font(.subheadline)
                 .foregroundStyle(ClaudeTheme.textSecondary)
 

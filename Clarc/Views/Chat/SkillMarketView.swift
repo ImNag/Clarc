@@ -130,7 +130,7 @@ struct SkillMarketView: View {
         Button {
             selectedFilter = label
         } label: {
-            Text(label)
+            Text(LocalizedStringKey(label))
                 .font(.system(size: 11, weight: selectedFilter == label ? .semibold : .regular))
                 .foregroundStyle(selectedFilter == label ? Color.white : Color.secondary)
                 .padding(.horizontal, 10)

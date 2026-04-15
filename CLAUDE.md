@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Clarc is a native macOS desktop client for the Claude Code CLI. Written in Swift + SwiftUI with no external dependencies beyond SwiftTerm (terminal emulation).
+Clarc is a native macOS desktop client for the Claude Code CLI. Written in Swift + SwiftUI with two external dependencies: SwiftTerm (terminal emulation) and Sparkle (auto-update).
 
 ## Writing Rules
 
@@ -23,15 +23,17 @@ xcodebuild -project Clarc.xcodeproj -scheme Clarc -configuration Debug build
 xcodebuild -project Clarc.xcodeproj -scheme Clarc -configuration Release build
 ```
 
-- Minimum deployment target: macOS 26.2+
+- Minimum deployment target: macOS 15.0+
 - No test suite (UI app)
 - Bundle ID: `com.idealapp.Clarc`
+- External dependencies: SwiftTerm (terminal emulation), Sparkle (auto-update)
 
 ## Architecture
 
 ### Core Patterns
 
 - **Observable AppState** (`App/AppState.swift`): `@MainActor @Observable` single state container. Manages all app state including projects, sessions, chat, and permission approvals.
+- **App entry point** (`App/ClarcApp.swift`): Defines WindowGroup (main), WindowGroup(id: "project-window") for dedicated per-project windows, Settings window, and Command menu (theme, update).
 - **Actor-based services**: All services are implemented as `actor` for concurrency safety. Isolated without locks.
 - **SwiftUI only**: No Storyboards or XIBs. 100% declarative UI.
 
@@ -54,6 +56,8 @@ The codebase is split into two Swift packages under `Packages/`:
 | `PersistenceService` | JSON file-based persistence at `~/Library/Application Support/Clarc/`. Per-project/session directory structure |
 | `MarketplaceService` | Parallel fetch of plugin catalog from 4 Anthropic GitHub repos, 5-minute cache |
 | `RateLimitService` | Anthropic usage API polling, OAuth token refresh, usage tracking |
+| `UpdateService` | Sparkle-based auto-update manager. Starts updater on launch; exposes `checkForUpdates()` for menu-initiated checks |
+| `BashSafety` | Whitelist-based read-only command validator. Blocks mutating git/claude/npm subcommands and write redirections |
 
 ### Data Flow
 
@@ -65,12 +69,16 @@ The codebase is split into two Swift packages under `Packages/`:
 
 ### View Structure (`Views/`)
 
-- `MainView`: NavigationSplitView (sidebar + detail)
+- `MainView`: NavigationSplitView (sidebar + detail) with project tab bar
+- `ProjectWindowView`: Dedicated single-project window (opened by double-clicking a project tab)
+- `SettingsView`: App settings window (model defaults, appearance, etc.)
 - `Chat/`: Main chat UI, message streaming, slash commands, attachments, marketplace, file diff, status line
-- `Sidebar/`: Project list, session history, file tree, Git status, file preview
+- `Sidebar/`: Project list, session history, file tree, Git status, file preview, GitHub repo list
 - `Onboarding/`: Initial setup flow, GitHub login
 - `Permission/`: Risk-based (Safe/Moderate/High) tool approval modals
 - `Terminal/`: SwiftTerm-based built-in terminal
+- `UserManualView`: In-app user guide (Help menu). NavigationSplitView with topic list and detail. Topics: overview, projects, chat, shortcuts, slash commands, attachments, shortcut buttons, terminal, marketplace, permissions
+- `InspectorMemoPanel`: Sidebar inspector panel with a rich-text (NSTextView) memo editor, persisted per project
 
 ### Compiler Settings
 
