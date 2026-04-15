@@ -6,6 +6,20 @@
     <language>en</language>
     <!-- Release entries are appended automatically by scripts/release.sh when running /release -->
     <item>
+      <title>Clarc v1.0.1</title>
+      <sparkle:releaseNotesLink>https://github.com/ttnear/Clarc/releases/tag/v1.0.1</sparkle:releaseNotesLink>
+      <pubDate>Wed, 15 Apr 2026 06:56:38 +0000</pubDate>
+      <enclosure
+        url="https://github.com/ttnear/Clarc/releases/download/v1.0.1/Clarc-1.0.1.zip"
+        sparkle:version="2"
+        sparkle:shortVersionString="1.0.1"
+        length="6088696"
+        type="application/octet-stream"
+        sparkle:edSignature="RXLk/JeF/JbHQzpcglfnACG1Vp8FTxPVcTBnAfqzBEfyQ5gH+Ru9tBY5lFDLoDUmuuF6yQCg+Q+G7nfJYwVODw=="
+      />
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+    </item>
+    <item>
       <title>Clarc v1.0.0</title>
       <sparkle:releaseNotesLink>https://github.com/ttnear/Clarc/releases/tag/v1.0.0</sparkle:releaseNotesLink>
       <pubDate>Tue, 15 Apr 2026 00:00:00 +0000</pubDate>
