@@ -2,7 +2,6 @@ import SwiftUI
 
 // MARK: - Syntax Highlighter
 
-@MainActor
 public enum SyntaxHighlighter {
     public static func highlight(_ code: String, language: String, fontSize: CGFloat = 12) -> AttributedString {
         let normalized = normalizeLanguage(language)

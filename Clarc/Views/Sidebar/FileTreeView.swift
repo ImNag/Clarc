@@ -399,7 +399,7 @@ struct FileNode: Identifiable, Sendable {
         }
     }
 
-    static func scan(path: String, maxDepth: Int) -> FileNode? {
+    nonisolated static func scan(path: String, maxDepth: Int) -> FileNode? {
         let fm = FileManager.default
         let url = URL(fileURLWithPath: path)
 
@@ -411,13 +411,13 @@ struct FileNode: Identifiable, Sendable {
         return buildNode(url: url, fm: fm, currentDepth: 0, maxDepth: maxDepth)
     }
 
-    private static let ignoredNames: Set<String> = [
+    private nonisolated static let ignoredNames: Set<String> = [
         ".git", ".build", ".swiftpm", "DerivedData",
         "node_modules", ".DS_Store", "Pods",
         "xcuserdata", ".xcodeproj", ".xcworkspace",
     ]
 
-    private static func buildNode(
+    private nonisolated static func buildNode(
         url: URL,
         fm: FileManager,
         currentDepth: Int,

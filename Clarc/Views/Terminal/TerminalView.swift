@@ -92,7 +92,7 @@ struct EmbeddedTerminalView: NSViewRepresentable {
     }
 
     final class Coordinator: NSObject, LocalProcessTerminalViewDelegate {
-        nonisolated let onTerminated: ((Int32) -> Void)?
+        nonisolated(unsafe) let onTerminated: ((Int32) -> Void)?
 
         nonisolated init(onTerminated: ((Int32) -> Void)?) {
             self.onTerminated = onTerminated

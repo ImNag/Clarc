@@ -113,7 +113,6 @@ struct HistoryListView: View {
     }
 
     private func sessionRow(_ session: DisplaySession) -> some View {
-        let isSelected = appState.currentSession(in: windowState)?.id == session.id
         return HStack(spacing: 4) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(session.title)

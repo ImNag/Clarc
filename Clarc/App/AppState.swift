@@ -703,7 +703,7 @@ final class AppState {
                     if case .result(let resultEvent) = event {
                         logger.info("[Stream:UI] event #\(eventCount) .result received after losing ownership — saving to disk")
                         if sessionKey != resultEvent.sessionId {
-                            if var state = sessionStates.removeValue(forKey: sessionKey) {
+                            if let state = sessionStates.removeValue(forKey: sessionKey) {
                                 sessionStates[resultEvent.sessionId] = state
                             }
                             sessionKey = resultEvent.sessionId
@@ -727,7 +727,7 @@ final class AppState {
                     if let sid = systemEvent.sessionId {
                         if sessionKey != sid {
                             let oldKey = sessionKey
-                            if var state = sessionStates.removeValue(forKey: oldKey) {
+                            if let state = sessionStates.removeValue(forKey: oldKey) {
                                 sessionStates[sid] = state
                             }
                             sessionKey = sid
@@ -811,7 +811,7 @@ final class AppState {
                     logger.info("[Stream:UI] event #\(eventCount) .result (gap=\(String(format: "%.1f", gap))s, isError=\(resultEvent.isError), session=\(resultEvent.sessionId))")
 
                     if sessionKey != resultEvent.sessionId {
-                        if var state = sessionStates.removeValue(forKey: sessionKey) {
+                        if let state = sessionStates.removeValue(forKey: sessionKey) {
                             sessionStates[resultEvent.sessionId] = state
                         }
                         sessionKey = resultEvent.sessionId
@@ -1508,7 +1508,7 @@ final class AppState {
             if let s = allSessionSummaries.first(where: { $0.id == id }) {
                 let session = ChatSession(id: s.id, projectId: s.projectId, title: s.title, messages: [], isPinned: s.isPinned)
                 if sessionStates[session.id] == nil,
-                   let full = await persistence.loadSession(projectId: project.id, sessionId: id) {
+                   let full = persistence.loadSession(projectId: project.id, sessionId: id) {
                     switchToSession(full, messages: full.messages, in: window)
                 } else {
                     switchToSession(session, in: window)

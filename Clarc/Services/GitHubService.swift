@@ -334,4 +334,12 @@ actor GitHubService {
 private struct SSHKeyResponse: Decodable {
     let id: Int
     let key: String
+
+    nonisolated init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        key = try c.decode(String.self, forKey: .key)
+    }
+
+    enum CodingKeys: CodingKey { case id, key }
 }

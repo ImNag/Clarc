@@ -5,7 +5,7 @@ enum KeychainHelper {
 
     // MARK: - Read (security CLI — reads items created by other apps without a popup)
 
-    static func read(service: String, account: String? = nil) -> Data? {
+    nonisolated static func read(service: String, account: String? = nil) -> Data? {
         var args = ["find-generic-password", "-s", service, "-w"]
         if let account {
             args.insert(contentsOf: ["-a", account], at: 1)
@@ -14,7 +14,7 @@ enum KeychainHelper {
         return output.data(using: .utf8)
     }
 
-    static func readString(service: String, account: String? = nil) -> String? {
+    nonisolated static func readString(service: String, account: String? = nil) -> String? {
         var args = ["find-generic-password", "-s", service, "-w"]
         if let account {
             args.insert(contentsOf: ["-a", account], at: 1)
@@ -24,7 +24,7 @@ enum KeychainHelper {
 
     // MARK: - Write / Delete (SecItem API — own app items)
 
-    static func save(_ data: Data, service: String, account: String) throws {
+    nonisolated static func save(_ data: Data, service: String, account: String) throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -45,7 +45,7 @@ enum KeychainHelper {
         }
     }
 
-    static func delete(service: String, account: String) throws {
+    nonisolated static func delete(service: String, account: String) throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -59,7 +59,7 @@ enum KeychainHelper {
 
     // MARK: - Private
 
-    private static func runSecurity(_ args: [String]) -> String? {
+    private nonisolated static func runSecurity(_ args: [String]) -> String? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
         process.arguments = args

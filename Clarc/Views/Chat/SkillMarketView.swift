@@ -459,6 +459,25 @@ struct PluginDetailView: View {
     }
 
     @ViewBuilder
+    private var removeButton: some View {
+        Button("Remove") {
+            terminalState = InteractiveTerminalState(
+                title: "Uninstall \(plugin.name)",
+                executable: "/bin/zsh",
+                arguments: ["-il"],
+                initialCommand: "claude plugin uninstall \(plugin.name)",
+                reportToChat: false
+            )
+        }
+        .font(.system(size: 12, weight: .medium))
+        .foregroundStyle(Color.red)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        .background(Color.red.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    @ViewBuilder
     private var actionButton: some View {
         switch installStatus {
         case .installing:
@@ -469,22 +488,10 @@ struct PluginDetailView: View {
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
             }
-        case .installed, .notInstalled where isInstalled:
-            Button("Remove") {
-                terminalState = InteractiveTerminalState(
-                    title: "Uninstall \(plugin.name)",
-                    executable: "/bin/zsh",
-                    arguments: ["-il"],
-                    initialCommand: "claude plugin uninstall \(plugin.name)",
-                    reportToChat: false
-                )
-            }
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(Color.red)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 6)
-            .background(Color.red.opacity(0.1))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+        case .installed:
+            removeButton
+        case .notInstalled where isInstalled:
+            removeButton
         case .failed:
             Button("Retry") {
                 terminalState = InteractiveTerminalState(

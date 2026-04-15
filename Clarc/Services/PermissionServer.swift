@@ -476,7 +476,7 @@ actor PermissionServer {
 // MARK: - Data Extension
 
 private extension Data {
-    func contains(_ other: Data) -> Bool {
+    nonisolated func contains(_ other: Data) -> Bool {
         range(of: other) != nil
     }
 }
@@ -498,6 +498,15 @@ private struct HookRequestBody: Decodable {
         case toolUseId = "tool_use_id"
         case sessionId = "session_id"
     }
+
+    nonisolated init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        hookEventName = try c.decode(String.self, forKey: .hookEventName)
+        toolName = try c.decode(String.self, forKey: .toolName)
+        toolInput = try c.decode([String: JSONValue].self, forKey: .toolInput)
+        toolUseId = try c.decode(String.self, forKey: .toolUseId)
+        sessionId = try c.decodeIfPresent(String.self, forKey: .sessionId)
+    }
 }
 
 /// The JSON response body returned to the Claude CLI.
@@ -508,6 +517,26 @@ private struct HookResponseBody: Encodable {
         let hookEventName: String
         let permissionDecision: String
         let permissionDecisionReason: String
+
+        nonisolated func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(hookEventName, forKey: .hookEventName)
+            try c.encode(permissionDecision, forKey: .permissionDecision)
+            try c.encode(permissionDecisionReason, forKey: .permissionDecisionReason)
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case hookEventName, permissionDecision, permissionDecisionReason
+        }
+    }
+
+    nonisolated func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(hookSpecificOutput, forKey: .hookSpecificOutput)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case hookSpecificOutput
     }
 }
 

@@ -3,7 +3,7 @@ import Foundation
 /// Evaluates read-only Bash commands against a whitelist.
 enum BashSafety {
 
-    private static let safeCommands: Set<String> = [
+    private nonisolated static let safeCommands: Set<String> = [
         // info / help
         "cat", "head", "tail", "less", "more", "wc", "file", "stat",
         "ls", "pwd", "echo", "printf", "date", "whoami", "hostname", "uname",
@@ -30,30 +30,30 @@ enum BashSafety {
         "jq", "yq", "xargs", "tr",
     ]
 
-    private static let gitMutatingSubcommands: Set<String> = [
+    private nonisolated static let gitMutatingSubcommands: Set<String> = [
         "push", "commit", "merge", "rebase", "reset", "checkout", "switch",
         "branch", "tag", "stash", "cherry-pick", "revert", "am", "apply",
         "clean", "rm", "mv", "restore", "bisect", "pull", "fetch", "clone",
         "init", "submodule", "worktree", "gc", "prune", "filter-branch",
     ]
 
-    private static let claudeMutatingSubcommands: Set<String> = [
+    private nonisolated static let claudeMutatingSubcommands: Set<String> = [
         "config", "login", "logout",
     ]
 
-    private static let packageMutatingSubcommands: Set<String> = [
+    private nonisolated static let packageMutatingSubcommands: Set<String> = [
         "install", "i", "add", "remove", "uninstall", "publish", "run",
         "exec", "dlx", "npx", "create", "init", "link", "unlink", "pack", "deprecate",
     ]
 
     /// Regex to split command chaining operators. `||` must be matched before `\|` to avoid splitting into two `|` tokens.
-    private static let segmentSeparator: NSRegularExpression = {
+    private nonisolated static let segmentSeparator: NSRegularExpression = {
         try! NSRegularExpression(pattern: #"\s*(?:;|&&|\|\||\|)\s*"#)
     }()
 
-    private static let allowedRedirectTokens = [">/dev/null", "2>/dev/null", "2>&1"]
+    private nonisolated static let allowedRedirectTokens = [">/dev/null", "2>/dev/null", "2>&1"]
 
-    static func isSafeReadOnly(command: String) -> Bool {
+    nonisolated static func isSafeReadOnly(command: String) -> Bool {
         let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -66,7 +66,7 @@ enum BashSafety {
         return true
     }
 
-    private static func splitSegments(_ input: String) -> [String] {
+    private nonisolated static func splitSegments(_ input: String) -> [String] {
         let regex = segmentSeparator
         let ns = input as NSString
         var segments: [String] = []
@@ -84,7 +84,7 @@ enum BashSafety {
         return segments.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }
 
-    private static func isSafeSegment(_ segment: String) -> Bool {
+    private nonisolated static func isSafeSegment(_ segment: String) -> Bool {
         // Block file write redirections. /dev/null and 2>&1 are allowed.
         if segmentHasWriteRedirect(segment) { return false }
 
@@ -124,7 +124,7 @@ enum BashSafety {
         return true
     }
 
-    private static func segmentHasWriteRedirect(_ segment: String) -> Bool {
+    private nonisolated static func segmentHasWriteRedirect(_ segment: String) -> Bool {
         guard segment.contains(">") else { return false }
         var stripped = segment
         for token in allowedRedirectTokens {
