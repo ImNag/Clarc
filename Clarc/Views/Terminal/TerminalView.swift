@@ -76,18 +76,15 @@ struct EmbeddedTerminalView: NSViewRepresentable {
     /// Build an environment array that guarantees UTF-8 locale so Korean and other
     /// multibyte characters render correctly in the terminal.
     private func resolvedEnvironment() -> [String] {
-        // Start from the caller-supplied environment or the current process environment.
-        var env: [String: String]
-        if let provided = environment {
-            env = Dictionary(uniqueKeysWithValues: provided.compactMap { entry -> (String, String)? in
-                let parts = entry.split(separator: "=", maxSplits: 1)
-                guard parts.count == 2 else { return nil }
-                return (String(parts[0]), String(parts[1]))
-            })
-        } else {
-            env = ProcessInfo.processInfo.environment
+        // Start from SwiftTerm's defaults (TERM=xterm-256color, COLORTERM=truecolor)
+        // to preserve color support, then override LANG/LC_CTYPE for UTF-8.
+        let base = environment ?? Terminal.getEnvironmentVariables(termName: "xterm-256color")
+        var env: [String: String] = [:]
+        for entry in base {
+            let parts = entry.split(separator: "=", maxSplits: 1)
+            guard parts.count == 2 else { continue }
+            env[String(parts[0])] = String(parts[1])
         }
-        // Ensure UTF-8 locale for correct multibyte (Korean, CJK, etc.) rendering.
         if env["LANG"] == nil || !(env["LANG"]?.hasSuffix("UTF-8") ?? false) {
             env["LANG"] = "en_US.UTF-8"
         }
