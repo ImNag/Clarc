@@ -326,8 +326,10 @@ enum ManualTopic: String, CaseIterable, Identifiable {
                     items: [
                         KeyValueItem(key: "⌘N", value: "Start new chat"),
                         KeyValueItem(key: "⌘W", value: "Close current window"),
-                        KeyValueItem(key: "⌘1", value: "Sidebar — History tab"),
-                        KeyValueItem(key: "⌘2", value: "Sidebar — Files tab"),
+                        KeyValueItem(key: "⌘1", value: "Sidebar — History tab (expands sidebar if hidden)"),
+                        KeyValueItem(key: "⌘2", value: "Sidebar — Files tab (expands sidebar if hidden)"),
+                        KeyValueItem(key: "⌘3", value: "Toggle left sidebar"),
+                        KeyValueItem(key: "⌘4", value: "Toggle right inspector panel"),
                         KeyValueItem(key: "⌘F", value: "Sidebar — Files tab + search"),
                         KeyValueItem(key: "Double-click", value: "Project tab — open in dedicated window"),
                     ]

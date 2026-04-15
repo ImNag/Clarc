@@ -145,6 +145,7 @@
 
 // MARK: - InspectorTabControl
 "Memo" = "메모";
+"Terminal" = "터미널";
 
 // MARK: - AppState
 "Previous conversation has been compacted" = "이전 대화가 압축되었습니다";
@@ -225,8 +226,10 @@
 "Global Shortcuts" = "전체 단축키";
 "Start new chat" = "새 채팅 시작";
 "Close current window" = "현재 창 닫기";
-"Sidebar — History tab" = "사이드바 — 기록 탭";
-"Sidebar — Files tab" = "사이드바 — 파일 탭";
+"Sidebar — History tab (expands sidebar if hidden)" = "사이드바 — 기록 탭 (숨겨진 경우 사이드바 펼침)";
+"Sidebar — Files tab (expands sidebar if hidden)" = "사이드바 — 파일 탭 (숨겨진 경우 사이드바 펼침)";
+"Toggle left sidebar" = "왼쪽 사이드바 펼치기/숨기기";
+"Toggle right inspector panel" = "오른쪽 인스펙터 패널 펼치기/숨기기";
 "Sidebar — Files tab + search" = "사이드바 — 파일 탭 + 검색";
 "Project tab — open in dedicated window" = "프로젝트 탭 — 전용 창에서 열기";
 "Input Field Shortcuts" = "입력창 단축키";
