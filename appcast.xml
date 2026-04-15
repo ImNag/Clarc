@@ -2,8 +2,22 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>Clarc</title>
-    <description>Clarc 업데이트</description>
-    <language>ko</language>
-    <!-- 릴리즈 항목은 /release 명령어 실행 시 scripts/release.sh 에 의해 자동 추가됩니다 -->
+    <description>Clarc Updates</description>
+    <language>en</language>
+    <!-- Release entries are appended automatically by scripts/release.sh when running /release -->
+    <item>
+      <title>Clarc v1.0.0</title>
+      <sparkle:releaseNotesLink>https://github.com/ttnear/Clarc/releases/tag/v1.0.0</sparkle:releaseNotesLink>
+      <pubDate>Tue, 15 Apr 2026 00:00:00 +0000</pubDate>
+      <enclosure
+        url="https://github.com/ttnear/Clarc/releases/download/v1.0.0/Clarc-1.0.0.zip"
+        sparkle:version="1.0.0"
+        sparkle:shortVersionString="1.0.0"
+        length="6045761"
+        type="application/octet-stream"
+        sparkle:edSignature="25FINt2LYK4XCLT43l8/b9oMrNwFaUJZqPyTo32LX4uYJlgSraVg7UKKIjzX8hK/JlE4x/OY4t48l01tLy1FDw=="
+      />
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+    </item>
   </channel>
 </rss>
