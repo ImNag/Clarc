@@ -29,6 +29,9 @@ struct SessionStreamState {
     var activeToolId: String?           // tool_use id currently receiving input_json_delta
     var activeToolInputBuffer: String = ""  // accumulator for input_json_delta
 
+    // Per-session model override (persisted in memory across session switches)
+    var model: String?
+
     // Session statistics
     var costUsd: Double = 0
     var inputTokens: Int = 0
@@ -81,6 +84,19 @@ final class AppState {
     static let availableModels = ["opus", "sonnet", "haiku"]
     var selectedModel: String = UserDefaults.standard.string(forKey: "selectedModel") ?? "opus" {
         didSet { UserDefaults.standard.set(selectedModel, forKey: "selectedModel") }
+    }
+
+    // MARK: - Notifications
+
+    var notificationsEnabled: Bool = (UserDefaults.standard.object(forKey: "notificationsEnabled") as? Bool) ?? true {
+        didSet { UserDefaults.standard.set(notificationsEnabled, forKey: "notificationsEnabled") }
+    }
+
+    /// Sets the model for the current session and persists it in the session state.
+    func setSessionModel(_ model: String, in window: WindowState) {
+        window.sessionModel = model
+        let key = window.currentSessionId ?? window.newSessionKey
+        updateState(key) { $0.model = model }
     }
 
     func modelDisplayName(for model: String, in window: WindowState) -> String {
@@ -406,7 +422,7 @@ final class AppState {
             if parts.count > 1 {
                 let arg = String(parts[1]).trimmingCharacters(in: .whitespaces).lowercased()
                 let matched = Self.availableModels.first { arg.contains($0) } ?? arg
-                selectedModel = matched
+                setSessionModel(matched, in: window)
             } else {
                 window.showModelPicker = true
             }
@@ -590,7 +606,7 @@ final class AppState {
                 cwd: project.path,
                 cliSessionId: cliSessionId,
                 internalSessionKey: sessionKey,
-                model: self.selectedModel,
+                model: window.sessionModel ?? self.selectedModel,
                 hookSettingsPath: hookSettingsPath,
                 dangerouslySkipPermissions: skipPermissions,
                 projectId: project.id,
@@ -759,6 +775,15 @@ final class AppState {
                                 allSessionSummaries.removeAll { $0.id == expectedPlaceholder }
                             }
 
+                            // A retry reuses the same pending session key (oldKey) with a new streamId,
+                            // so expectedPlaceholder won't match oldKey. Clean up the stale placeholder
+                            // here to prevent the old entry from persisting as a duplicate in history.
+                            let oldKey = sessionKey == sid ? internalSessionKey : sessionKey
+                            if oldKey != expectedPlaceholder && window.pendingPlaceholderIds.contains(oldKey) {
+                                allSessionSummaries.removeAll { $0.id == oldKey }
+                                window.removePendingPlaceholder(oldKey)
+                            }
+
                             if !allSessionSummaries.contains(where: { $0.id == sid }),
                                let project = projects.first(where: { $0.id == projectId }) {
                                 let msgs = stateForSession(sessionKey).messages
@@ -851,6 +876,14 @@ final class AppState {
                             guard let self else { return }
                             if let pct = await claude.fetchContextPercentage(sessionId: sid, cwd: cwdCapture) {
                                 updateState(key) { $0.lastTurnContextUsedPercentage = pct }
+                            }
+                        }
+
+                        if notificationsEnabled && !NSApp.isActive {
+                            let title = allSessionSummaries.first(where: { $0.id == resultEvent.sessionId })?.title ?? "New Session"
+                            let pid = projectId
+                            Task { @MainActor in
+                                await NotificationService.shared.postResponseComplete(title: title, projectId: pid)
                             }
                         }
                     }
@@ -1288,6 +1321,7 @@ final class AppState {
 
         if sessionStates[session.id] == nil {
             var state = SessionStreamState()
+            state.model = session.model
             if let msgs = loadedMessages {
                 state.messages = cleanLoadedMessages(msgs)
                 sessionStates[session.id] = state
@@ -1301,6 +1335,10 @@ final class AppState {
         } else if sessionStates[session.id]?.messages.isEmpty == true,
                   sessionStates[session.id]?.isStreaming != true,
                   let project = window.selectedProject {
+            // Restore model from disk if not already set in memory
+            if sessionStates[session.id]?.model == nil {
+                sessionStates[session.id]?.model = session.model
+            }
             loadMessagesInBackground(projectId: project.id, sessionId: session.id)
         }
 
@@ -1309,6 +1347,7 @@ final class AppState {
         }
 
         window.currentSessionId = session.id
+        window.sessionModel = sessionStates[session.id]?.model ?? session.model
         window.inputText = window.draftTexts[session.id] ?? ""
         window.messageQueue = window.draftQueues[session.id] ?? []
 
@@ -1414,6 +1453,7 @@ final class AppState {
         saveQueue(in: window)
         releaseOutgoingSession(window.currentSessionId, in: window)
         window.currentSessionId = nil
+        window.sessionModel = nil
         sessionStates.removeValue(forKey: window.newSessionKey)
         window.inputText = window.draftTexts["new"] ?? ""
         window.messageQueue = window.draftQueues["new"] ?? []
@@ -1424,7 +1464,10 @@ final class AppState {
         if let si = allSessionSummaries.firstIndex(where: { $0.id == session.id }) {
             allSessionSummaries[si].title = newTitle
         }
-        var updated = session
+        // Load full session from disk to preserve existing messages (the caller
+        // may pass a summary-backed session with empty messages).
+        let base = persistence.loadSession(projectId: session.projectId, sessionId: session.id) ?? session
+        var updated = base
         updated.title = newTitle
         do { try await persistence.saveSession(updated) }
         catch { logger.error("Failed to save renamed session: \(error.localizedDescription)") }
@@ -1644,6 +1687,7 @@ final class AppState {
                 guard var state = self.sessionStates[sessionId] else { return }
                 guard !state.isStreaming, state.messages.isEmpty else { return }
                 state.messages = cleaned
+                if state.model == nil { state.model = full.model }
                 self.sessionStates[sessionId] = state
             }
         }
@@ -1662,10 +1706,18 @@ final class AppState {
     private func saveSession(sessionId: String, projectId: UUID, messages: [ChatMessage]) async {
         guard !messages.isEmpty else { return }
 
-        let firstUserContent = messages.first(where: { $0.role == .user })?.content
-        let title = firstUserContent.map { $0.count > 50 ? String($0.prefix(50)) + "..." : $0 } ?? "New Session"
+        // Preserve the existing title (which may have been renamed by the user).
+        // Only auto-generate a title when no summary exists yet for this session.
+        let title: String
+        if let existing = allSessionSummaries.first(where: { $0.id == sessionId }), !existing.title.isEmpty {
+            title = existing.title
+        } else {
+            let firstUserContent = messages.first(where: { $0.role == .user })?.content
+            title = firstUserContent.map { $0.count > 50 ? String($0.prefix(50)) + "..." : $0 } ?? "New Session"
+        }
 
-        let session = ChatSession(id: sessionId, projectId: projectId, title: title, messages: messages, updatedAt: lastResponseDate(from: messages))
+        let sessionModel = sessionStates[sessionId]?.model
+        let session = ChatSession(id: sessionId, projectId: projectId, title: title, messages: messages, updatedAt: lastResponseDate(from: messages), model: sessionModel)
 
         do {
             try await persistence.saveSession(session)

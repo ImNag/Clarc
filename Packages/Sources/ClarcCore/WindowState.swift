@@ -86,6 +86,9 @@ public final class WindowState {
     public var diffFile: PreviewFile?
     public var showMarketplace = false
     public var showModelPicker = false
+    /// Per-session model override. When set, this model is used instead of the global default.
+    /// Cleared when a new chat is started or a different session is selected.
+    public var sessionModel: String?
     public var requestInputFocus = false
     public var registryVersion = 0
     public var isInitialized = false

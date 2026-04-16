@@ -422,7 +422,7 @@ struct ProjectTabButton: View {
         }
         .buttonStyle(.plain)
         .onTapGesture(count: 2) {
-            openWindow(id: "project-window", value: project.id)
+            openWindow(id: "project-window", value: ProjectWindowValue(projectId: project.id, instanceId: UUID()))
         }
         .contextMenu {
             Button {
@@ -543,6 +543,14 @@ struct SidebarTabShortcuts: View {
 
 struct ChatToolbarControls: View {
     @Environment(AppState.self) private var appState
+    @Environment(WindowState.self) private var windowState
+
+    private var modelBinding: Binding<String> {
+        Binding(
+            get: { windowState.sessionModel ?? appState.selectedModel },
+            set: { appState.setSessionModel($0, in: windowState) }
+        )
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -556,7 +564,7 @@ struct ChatToolbarControls: View {
             .buttonStyle(.plain)
             .help(appState.dangerouslySkipPermissions ? "Skip Permissions: ON" : "Skip Permissions: OFF")
 
-            Picker("", selection: Bindable(appState).selectedModel) {
+            Picker("", selection: modelBinding) {
                 ForEach(AppState.availableModels, id: \.self) { model in
                     Text(model.capitalized).tag(model)
                 }
@@ -589,6 +597,7 @@ struct ChatDetailModifiers: ViewModifier {
             .sheet(isPresented: Bindable(windowState).showModelPicker) {
                 ModelPickerSheet()
                     .environment(appState)
+                    .environment(windowState)
             }
             .sheet(item: Bindable(windowState).interactiveTerminal) { terminal in
                 InteractiveTerminalPopup(state: terminal)
@@ -600,9 +609,12 @@ struct ChatDetailModifiers: ViewModifier {
 
 struct ModelPickerSheet: View {
     @Environment(AppState.self) private var appState
+    @Environment(WindowState.self) private var windowState
     @Environment(\.dismiss) private var dismiss
     @State private var selectedIndex: Int = 0
     @FocusState private var isFocused: Bool
+
+    private var effectiveModel: String { windowState.sessionModel ?? appState.selectedModel }
 
     var body: some View {
         VStack(spacing: 16) {
@@ -617,7 +629,7 @@ struct ModelPickerSheet: View {
                         Text(model.capitalized)
                             .foregroundStyle(ClaudeTheme.textPrimary)
                         Spacer()
-                        if appState.selectedModel == model {
+                        if effectiveModel == model {
                             Image(systemName: "checkmark")
                                 .foregroundStyle(ClaudeTheme.accent)
                         }
@@ -627,7 +639,7 @@ struct ModelPickerSheet: View {
                     .background(index == selectedIndex ? ClaudeTheme.accentSubtle : ClaudeTheme.surfacePrimary)
                     .clipShape(RoundedRectangle(cornerRadius: ClaudeTheme.cornerRadiusSmall))
                     .onTapGesture {
-                        appState.selectedModel = model
+                        appState.setSessionModel(model, in: windowState)
                         dismiss()
                     }
                 }
@@ -651,7 +663,7 @@ struct ModelPickerSheet: View {
             return .handled
         }
         .onKeyPress(.return) {
-            appState.selectedModel = AppState.availableModels[selectedIndex]
+            appState.setSessionModel(AppState.availableModels[selectedIndex], in: windowState)
             dismiss()
             return .handled
         }
@@ -660,7 +672,7 @@ struct ModelPickerSheet: View {
             return .handled
         }
         .onAppear {
-            selectedIndex = AppState.availableModels.firstIndex(of: appState.selectedModel) ?? 0
+            selectedIndex = AppState.availableModels.firstIndex(of: effectiveModel) ?? 0
             DispatchQueue.main.async { isFocused = true }
         }
     }

@@ -58,9 +58,14 @@ struct GeneralSettingsTab: View {
     @State private var showSkillMarket = false
 
     var body: some View {
+        @Bindable var appState = appState
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 themeSection
+                Divider()
+                modelSection(appState: $appState.selectedModel)
+                Divider()
+                notificationsSection(appState: $appState.notificationsEnabled)
                 Divider()
                 VStack(alignment: .leading, spacing: 8) {
                     skillMarketSection
@@ -69,6 +74,50 @@ struct GeneralSettingsTab: View {
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    // MARK: - Model Section
+
+    private func modelSection(appState: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Default Model")
+                .font(.system(size: 13, weight: .semibold))
+
+            Text("Used for new sessions. You can override the model per session from the toolbar.")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 8) {
+                ForEach(AppState.availableModels, id: \.self) { model in
+                    ModelOptionButton(
+                        label: model.capitalized,
+                        isSelected: appState.wrappedValue == model
+                    ) {
+                        appState.wrappedValue = model
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Notifications Section
+
+    private func notificationsSection(appState: Binding<Bool>) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Notifications")
+                .font(.system(size: 13, weight: .semibold))
+
+            Toggle(isOn: appState) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Notify when response completes")
+                        .font(.system(size: 13))
+                    Text("Sends a system notification while Clarc is in the background.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
         }
     }
 
@@ -159,6 +208,34 @@ struct GeneralSettingsTab: View {
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(Color(NSColor.separatorColor), lineWidth: 1)
             )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Model Option Button
+
+private struct ModelOptionButton: View {
+    let label: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(size: 13))
+                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(isSelected ? Color.accentColor.opacity(0.12) : Color(NSColor.controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(
+                            isSelected ? Color.accentColor : Color(NSColor.separatorColor),
+                            lineWidth: isSelected ? 1.5 : 1
+                        )
+                )
         }
         .buttonStyle(.plain)
     }

@@ -15,6 +15,13 @@ extension FocusedValues {
     }
 }
 
+// MARK: - ProjectWindowValue
+
+struct ProjectWindowValue: Codable, Hashable {
+    let projectId: UUID
+    let instanceId: UUID
+}
+
 // MARK: - App
 
 @main
@@ -53,8 +60,8 @@ struct ClarcApp: App {
         }
 
         // Dedicated project window — opened on double-click
-        WindowGroup(id: "project-window", for: UUID.self) { $projectId in
-            if let id = projectId {
+        WindowGroup(id: "project-window", for: ProjectWindowValue.self) { $value in
+            if let id = value?.projectId {
                 ProjectWindowRoot(appState: appState, projectId: id)
                     .focusable(false)
             }
@@ -71,6 +78,7 @@ struct ClarcApp: App {
 
 struct MainWindowRoot: View {
     let appState: AppState
+    @Environment(\.openWindow) private var openWindow
     @State private var windowState = WindowState()
     @State private var chatBridge = ChatBridge()
 
@@ -83,6 +91,10 @@ struct MainWindowRoot: View {
                 await appState.initialize()
                 appState.setupChatBridge(chatBridge, for: windowState)
                 await appState.initializeWindow(windowState)
+                await NotificationService.shared.requestAuthorizationIfNeeded()
+                NotificationService.shared.onNotificationTapped = { projectId in
+                    openWindow(id: "project-window", value: ProjectWindowValue(projectId: projectId, instanceId: UUID()))
+                }
             }
     }
 }
