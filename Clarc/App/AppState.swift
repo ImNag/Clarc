@@ -82,7 +82,7 @@ final class AppState {
     // MARK: - Model
 
     static let availableModels = ["opus", "sonnet", "haiku"]
-    static let availableEfforts = ["low", "medium", "high", "max"]
+    static let availableEfforts = ["low", "medium", "high", "xhigh", "max"]
     var selectedModel: String = UserDefaults.standard.string(forKey: "selectedModel") ?? "opus" {
         didSet { UserDefaults.standard.set(selectedModel, forKey: "selectedModel") }
     }

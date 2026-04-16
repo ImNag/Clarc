@@ -525,9 +525,9 @@ struct ChatToolbarControls: View {
 
     private var effortBinding: Binding<String> {
         Binding(
-            get: { windowState.sessionEffort ?? "default" },
+            get: { windowState.sessionEffort ?? "auto" },
             set: { newValue in
-                windowState.sessionEffort = newValue == "default" ? nil : newValue
+                windowState.sessionEffort = newValue == "auto" ? nil : newValue
             }
         )
     }
@@ -557,9 +557,9 @@ struct ChatToolbarControls: View {
 
             Picker("", selection: effortBinding) {
                 Section("Effort") {
-                    Text("Default").tag("default")
+                    Text("Auto").tag("auto")
                     ForEach(AppState.availableEfforts, id: \.self) { effort in
-                        Text(effort.capitalized).tag(effort)
+                        Text(effort == "xhigh" ? "XHigh" : effort.capitalized).tag(effort)
                     }
                 }
             }
@@ -687,7 +687,7 @@ struct EffortPickerSheet: View {
     @State private var selectedIndex: Int = 0
     @FocusState private var isFocused: Bool
 
-    // 0 = Default (nil), 1...n = availableEfforts
+    // 0 = Auto (nil), 1...n = availableEfforts
     private let items: [String?] = [nil] + AppState.availableEfforts.map { Optional($0) }
 
     private var effectiveEffort: String? { windowState.sessionEffort }
@@ -703,7 +703,7 @@ struct EffortPickerSheet: View {
                     let effort = items[index]
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(effort?.capitalized ?? "Default")
+                            Text(effort.map { $0 == "xhigh" ? "XHigh" : $0.capitalized } ?? "Auto")
                                 .foregroundStyle(ClaudeTheme.textPrimary)
                             if effort == "max" {
                                 Text("Opus 4.6 only")

@@ -427,11 +427,11 @@ struct InputBarView: View {
                         .foregroundStyle(ClaudeTheme.textSecondary.opacity(0.7))
 
                     Text(queued.text.isEmpty ? String(localized: "(attachment)", bundle: .module) : queued.text)
-                        .font(.system(size: 12))
+                        .font(.system(size: 14))
                         .foregroundStyle(ClaudeTheme.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .frame(maxWidth: 200)
+                        .frame(maxWidth: 240)
 
                     if !queued.attachments.isEmpty {
                         Image(systemName: "paperclip")
@@ -452,8 +452,8 @@ struct InputBarView: View {
                     }
                     .buttonStyle(.borderless)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
                 .background(.ultraThinMaterial)
                 .clipShape(Capsule())
                 .opacity(0.9)
