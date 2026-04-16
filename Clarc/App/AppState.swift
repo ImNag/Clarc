@@ -881,9 +881,17 @@ final class AppState {
 
                         if notificationsEnabled && !NSApp.isActive {
                             let title = allSessionSummaries.first(where: { $0.id == resultEvent.sessionId })?.title ?? "New Session"
+                            let firstSentence = stateForSession(sessionKey).messages
+                                .last(where: { $0.role == .assistant && !$0.isError })
+                                .flatMap { msg -> String? in
+                                    let text = msg.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    guard !text.isEmpty else { return nil }
+                                    let sentence = text.components(separatedBy: CharacterSet(charactersIn: ".!?\n")).first ?? text
+                                    return sentence.trimmingCharacters(in: .whitespaces)
+                                } ?? ""
                             let pid = projectId
                             Task { @MainActor in
-                                await NotificationService.shared.postResponseComplete(title: title, projectId: pid)
+                                await NotificationService.shared.postResponseComplete(title: title, body: firstSentence, projectId: pid)
                             }
                         }
                     }

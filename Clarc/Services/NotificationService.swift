@@ -33,7 +33,7 @@ final class NotificationService: NSObject {
     }
 
     /// Post a "response complete" notification. Silently no-ops if unauthorized.
-    func postResponseComplete(title: String, projectId: UUID) async {
+    func postResponseComplete(title: String, body: String, projectId: UUID) async {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         switch settings.authorizationStatus {
         case .authorized, .provisional:
@@ -44,7 +44,9 @@ final class NotificationService: NSObject {
 
         let content = UNMutableNotificationContent()
         content.title = title
-        content.body = NSLocalizedString("Response complete", comment: "Notification body when Claude finishes a response")
+        content.body = body.isEmpty
+            ? NSLocalizedString("Response complete", comment: "Notification body when Claude finishes a response")
+            : body
         content.sound = .default
         content.userInfo = ["projectId": projectId.uuidString]
 
