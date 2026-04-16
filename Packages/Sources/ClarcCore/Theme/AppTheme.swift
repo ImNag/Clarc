@@ -209,6 +209,39 @@ extension ThemeColors {
 }
 
 extension ThemeColors {
+    public static let amber: ThemeColors = {
+        let accent: Color = Color(light: .hex(0xBF8A10), dark: .hex(0xE0AC30))
+        return ThemeColors(
+            accent:               accent,
+            accentSubtle:         Color(light: .hex(0xBF8A10).opacity(0.12), dark: .hex(0xE0AC30).opacity(0.15)),
+            background:           Color(light: .hex(0xF8F5EC), dark: .hex(0x1C1800)),
+            surfacePrimary:       Color(light: .hex(0xF0EAD8), dark: .hex(0x261E04)),
+            surfaceSecondary:     Color(light: .hex(0xE6E0C8), dark: .hex(0x30280A)),
+            surfaceTertiary:      Color(light: .hex(0xDAD4B8), dark: .hex(0x3C3310)),
+            surfaceElevated:      Color(light: .hex(0xFCFAF4), dark: .hex(0x2A2208)),
+            sidebarBackground:    Color(light: .hex(0xEDE7D2), dark: .hex(0x151200)),
+            sidebarItemHover:     Color(light: .hex(0xE2DBC6), dark: .hex(0x261E04)),
+            sidebarItemSelected:  Color(light: .hex(0xBF8A10).opacity(0.12), dark: .hex(0xE0AC30).opacity(0.15)),
+            textPrimary:          Color(light: .hex(0x3A2C06), dark: .hex(0xD4C47A)),
+            textSecondary:        Color(light: .hex(0x7A6028), dark: .hex(0xA08840)),
+            textTertiary:         Color(light: .hex(0xA89050), dark: .hex(0x756430)),
+            border:               Color(light: .hex(0xD4CBA0), dark: .hex(0x3A2E10)),
+            borderSubtle:         Color(light: .hex(0xE2DBC6), dark: .hex(0x30280A)),
+            codeBackground:       Color(light: .hex(0xEAE3CC), dark: .hex(0x110E00)),
+            codeHeaderBackground: Color(light: .hex(0xDED7C0), dark: .hex(0x1C1800)),
+            userBubble:           Color(light: .hex(0x3A2C06), dark: .hex(0x3C3310)),
+            userBubbleText:       Color(light: .hex(0xF8F5EC), dark: .hex(0xD4C47A)),
+            assistantBubble:      Color(light: .hex(0xEAE3CC), dark: .hex(0x261E04)),
+            statusSuccess:        Color(light: .hex(0x4A8A5E), dark: .hex(0x6AAC7C)),
+            statusError:          Color(light: .hex(0xB85C50), dark: .hex(0xC47060)),
+            statusWarning:        Color(light: .hex(0xBF8A10), dark: .hex(0xE0AC30)),
+            inputBackground:      Color(light: .hex(0xFCFAF4), dark: .hex(0x261E04)),
+            inputBorder:          Color(light: .hex(0xD4CBA0), dark: .hex(0x3A2E10))
+        )
+    }()
+}
+
+extension ThemeColors {
     public static let midnight: ThemeColors = {
         let accent: Color = Color(light: .hex(0x4A5CC7), dark: .hex(0x6B7FD4))
         return ThemeColors(
@@ -249,6 +282,7 @@ public enum AppTheme: String, CaseIterable, Identifiable {
     case forest   = "Forest"
     case lavender = "Lavender"
     case midnight = "Midnight"
+    case amber    = "Amber"
 
     public var id: String { rawValue }
 
@@ -259,6 +293,7 @@ public enum AppTheme: String, CaseIterable, Identifiable {
         case .forest:   "Forest (Green)"
         case .lavender: "Lavender (Purple)"
         case .midnight: "Midnight (Indigo)"
+        case .amber:    "Amber (Yellow)"
         }
     }
 
@@ -269,6 +304,7 @@ public enum AppTheme: String, CaseIterable, Identifiable {
         case .forest:   .forest
         case .lavender: .lavender
         case .midnight: .midnight
+        case .amber:    .amber
         }
     }
 }

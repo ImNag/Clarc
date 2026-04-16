@@ -79,8 +79,6 @@ struct MessageListView: View {
                         )
                         Spacer(minLength: 40)
                     }
-                    .id("streaming-\(windowState.currentSessionId ?? "new")")
-                    .transition(.identity)
                 }
 
                 if !chatBridge.isStreaming && !settledItems.isEmpty {
@@ -89,10 +87,9 @@ struct MessageListView: View {
                 }
             }
             .padding(.horizontal, 20)
-            // Suppress layout animations when switching sessions or streaming state changes,
-            // so the pulse indicator doesn't visually jump as content height shifts.
+            // Suppress layout animations when switching sessions so the pulse indicator
+            // doesn't visually jump as StreamingMessageView changes height.
             .animation(.none, value: windowState.currentSessionId)
-            .animation(.none, value: chatBridge.isStreaming)
 
             Color.clear.frame(height: 1)
                 .padding(.bottom, 16)
@@ -119,6 +116,9 @@ struct MessageListView: View {
             }
             try? await Task.sleep(for: .milliseconds(16))  // 1 frame: scroll after VStack layout is committed
             scrollPosition.scrollTo(edge: .bottom)
+            // Pre-set isNearBottom so streaming messages that arrive before onScrollGeometryChange
+            // fires still trigger scrollToBottomDebounced(), keeping the pulse pinned to the bottom.
+            isNearBottom = true
             try? await Task.sleep(for: .milliseconds(32))  // 2 frames: fade-in after scroll settles
             withAnimation(.easeIn(duration: 0.15)) { isSessionReady = true }
         }
