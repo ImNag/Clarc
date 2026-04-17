@@ -12,7 +12,6 @@ struct MainView: View {
     @State private var sidebarTab: SidebarTab = .history
     @State private var fileSearchTrigger = false
     @State private var inspectorStarted = false
-    @State private var inspectorProcess = TerminalProcess()
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var projectToDelete: Project? = nil
     @State private var projectToRename: Project? = nil
@@ -79,37 +78,42 @@ struct MainView: View {
                     return base
                 }())
                 .toolbar {
-                    Button {
-                        showGitHubSheet = true
-                    } label: {
-                        Image("GitHubMark")
-                            .resizable()
-                            .frame(width: 18, height: 18)
-                            .foregroundStyle(ClaudeTheme.textSecondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(appState.isLoggedIn ? "Manage GitHub Repos" : "Connect GitHub")
+                    if columnVisibility != .detailOnly {
+                        ToolbarItemGroup(placement: .confirmationAction) {
+                            Button {
+                                showGitHubSheet = true
+                            } label: {
+                                Image("GitHubMark")
+                                    .resizable()
+                                    .frame(width: 18, height: 18)
+                                    .foregroundStyle(ClaudeTheme.textSecondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help(appState.isLoggedIn ? "Manage GitHub Repos" : "Connect GitHub")
 
-                    Button {
-                        showFilePicker = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16))
-                            .foregroundStyle(ClaudeTheme.textSecondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Add Project")
-                    .fileImporter(
-                        isPresented: $showFilePicker,
-                        allowedContentTypes: [.folder],
-                        allowsMultipleSelection: false
-                    ) { result in
-                        handleFolderSelection(result)
+                            Button {
+                                showFilePicker = true
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(ClaudeTheme.textSecondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Add Project")
+                            .fileImporter(
+                                isPresented: $showFilePicker,
+                                allowedContentTypes: [.folder],
+                                allowsMultipleSelection: false
+                            ) { result in
+                                handleFolderSelection(result)
+                            }
+                        }
+                    
                     }
                 }
 
                 if inspectorStarted {
-                    inspectorPanel
+                    InspectorPanel()
                 }
             }
         }
@@ -263,57 +267,6 @@ struct MainView: View {
         }
     }
 
-    // MARK: - Inspector Panel (Terminal + Memo with tabs)
-
-    private var inspectorPanel: some View {
-        VStack(spacing: 0) {
-            // Header: icon + tab control + close button
-            HStack(spacing: 8) {
-                InspectorTabControl(selection: Bindable(windowState).inspectorTab)
-
-                Spacer()
-
-                Button {
-                    windowState.showInspector = false
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .medium))
-                        .frame(width: 20, height: 20)
-                }
-                .buttonStyle(.plain)
-                .keyboardShortcut("w", modifiers: .command)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-
-            ClaudeThemeDivider()
-
-            // Terminal content — kept in hierarchy to preserve process
-            EmbeddedTerminalView(
-                executable: "/bin/zsh",
-                arguments: ["-il"],
-                currentDirectory: windowState.selectedProject?.path,
-                process: inspectorProcess
-            )
-            .padding(8)
-            .background(ClaudeTheme.codeBackground)
-            .frame(maxHeight: windowState.inspectorTab == .terminal ? .infinity : 0)
-            .clipped()
-
-            // Memo content
-            InspectorMemoPanel()
-                .frame(maxHeight: windowState.inspectorTab == .memo ? .infinity : 0)
-                .clipped()
-        }
-        .background(ClaudeTheme.surfaceElevated)
-        .frame(
-            minWidth: windowState.showInspector ? 380 : 0,
-            maxWidth: windowState.showInspector ? .infinity : 0
-        )
-        .opacity(windowState.showInspector ? 1 : 0)
-        .clipped()
-    }
-
     // MARK: - Folder Selection
 
     private func handleFolderSelection(_ result: Result<[URL], Error>) {
@@ -441,6 +394,89 @@ struct InspectorTabControl: View {
     }
 }
 
+// MARK: - Inspector Panel
+
+struct InspectorPanel: View {
+    @Environment(WindowState.self) private var windowState
+    @State private var inspectorProcess = TerminalProcess()
+    @State private var terminalResetID = UUID()
+    @State private var memoClearID: UUID? = nil
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                InspectorTabControl(selection: Bindable(windowState).inspectorTab)
+
+                Spacer()
+
+                if windowState.inspectorTab == .terminal {
+                    InspectorIconButton(help: "Reset Terminal") {
+                        inspectorProcess.terminate()
+                        inspectorProcess = TerminalProcess()
+                        terminalResetID = UUID()
+                    }
+                } else if windowState.inspectorTab == .memo {
+                    InspectorIconButton(help: "Clear Memo") {
+                        memoClearID = UUID()
+                    }
+                }
+
+                Button {
+                    windowState.showInspector = false
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .medium))
+                        .frame(width: 20, height: 20)
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut("w", modifiers: .command)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+
+            ClaudeThemeDivider()
+
+            EmbeddedTerminalView(
+                executable: "/bin/zsh",
+                arguments: ["-il"],
+                currentDirectory: windowState.selectedProject?.path,
+                process: inspectorProcess
+            )
+            .id(terminalResetID)
+            .padding(8)
+            .background(ClaudeTheme.codeBackground)
+            .frame(maxHeight: windowState.inspectorTab == .terminal ? .infinity : 0)
+            .clipped()
+
+            InspectorMemoPanel(projectId: windowState.selectedProject?.id, clearTrigger: memoClearID)
+                .frame(maxHeight: windowState.inspectorTab == .memo ? .infinity : 0)
+                .clipped()
+        }
+        .background(ClaudeTheme.surfaceElevated)
+        .frame(
+            minWidth: windowState.showInspector ? 380 : 0,
+            maxWidth: windowState.showInspector ? .infinity : 0
+        )
+        .opacity(windowState.showInspector ? 1 : 0)
+        .clipped()
+    }
+}
+
+private struct InspectorIconButton: View {
+    let help: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "arrow.counterclockwise")
+                .font(.system(size: 11, weight: .medium))
+                .frame(width: 20, height: 20)
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+}
+
 // MARK: - Claude Segmented Control
 
 struct ClaudeSegmentedControl: View {
@@ -512,6 +548,17 @@ struct SidebarTabShortcuts: View {
 
 // MARK: - Shared Chat UI Components
 
+private func effortDisplayName(_ effort: String) -> String {
+    switch effort {
+    case "low": return "Low"
+    case "medium": return "Medium"
+    case "high": return "High"
+    case "xhigh": return "XHigh"
+    case "max": return "Max"
+    default: return effort.capitalized
+    }
+}
+
 struct ChatToolbarControls: View {
     @Environment(AppState.self) private var appState
     @Environment(WindowState.self) private var windowState
@@ -525,29 +572,38 @@ struct ChatToolbarControls: View {
 
     private var effortBinding: Binding<String> {
         Binding(
-            get: { windowState.sessionEffort ?? "default" },
+            get: { windowState.sessionEffort ?? "auto" },
             set: { newValue in
-                windowState.sessionEffort = newValue == "default" ? nil : newValue
+                appState.setSessionEffort(newValue == "auto" ? nil : newValue, in: windowState)
             }
+        )
+    }
+
+    private var permissionModeBinding: Binding<PermissionMode> {
+        Binding(
+            get: { windowState.sessionPermissionMode ?? appState.permissionMode },
+            set: { appState.setSessionPermissionMode($0, in: windowState) }
         )
     }
 
     var body: some View {
         HStack(spacing: 8) {
-            Button {
-                appState.dangerouslySkipPermissions.toggle()
-            } label: {
-                Image(systemName: appState.dangerouslySkipPermissions ? "bolt.shield.fill" : "bolt.shield")
-                    .font(.system(size: 16))
-                    .foregroundStyle(appState.dangerouslySkipPermissions ? .red : .green)
+            Picker("", selection: permissionModeBinding) {
+                Section("Permission Mode") {
+                    ForEach(PermissionMode.allCases, id: \.self) { mode in
+                        Text(LocalizedStringKey(mode.displayName)).tag(mode)
+                    }
+                }
             }
-            .buttonStyle(.plain)
-            .help(appState.dangerouslySkipPermissions ? "Skip Permissions: ON" : "Skip Permissions: OFF")
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+            .help("Permission mode: \((windowState.sessionPermissionMode ?? appState.permissionMode).displayName)")
 
             Picker("", selection: modelBinding) {
-                Section("Model") {
+                Section("Model Picker") {
                     ForEach(AppState.availableModels, id: \.self) { model in
-                        Text(model.capitalized).tag(model)
+                        Text(AppState.modelDisplayName(model)).tag(model)
                     }
                 }
             }
@@ -556,17 +612,17 @@ struct ChatToolbarControls: View {
             .fixedSize()
 
             Picker("", selection: effortBinding) {
-                Section("Effort") {
-                    Text("Default").tag("default")
+                Section("Effort Picker") {
+                    Text("Auto Effort").tag("auto")
                     ForEach(AppState.availableEfforts, id: \.self) { effort in
-                        Text(effort.capitalized).tag(effort)
+                        Text(effortDisplayName(effort)).tag(effort)
                     }
                 }
             }
             .labelsHidden()
             .pickerStyle(.menu)
             .fixedSize()
-            .help("Set thinking effort level (--effort)")
+            .help("Effort level (--effort)")
         }
     }
 }
@@ -625,13 +681,21 @@ struct ModelPickerSheet: View {
             VStack(spacing: 8) {
                 ForEach(AppState.availableModels.indices, id: \.self) { index in
                     let model = AppState.availableModels[index]
-                    HStack {
-                        Text(model.capitalized)
-                            .foregroundStyle(ClaudeTheme.textPrimary)
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(AppState.modelDisplayName(model))
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(ClaudeTheme.textPrimary)
+                            Text(AppState.modelDescription(model))
+                                .font(.system(size: 11))
+                                .foregroundStyle(ClaudeTheme.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                         Spacer()
                         if effectiveModel == model {
                             Image(systemName: "checkmark")
                                 .foregroundStyle(ClaudeTheme.accent)
+                                .padding(.top, 2)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -650,7 +714,7 @@ struct ModelPickerSheet: View {
                 .foregroundStyle(ClaudeTheme.textTertiary)
         }
         .padding(20)
-        .frame(width: 300)
+        .frame(width: 380)
         .background(ClaudeTheme.background)
         .focusable()
         .focused($isFocused)
@@ -687,7 +751,7 @@ struct EffortPickerSheet: View {
     @State private var selectedIndex: Int = 0
     @FocusState private var isFocused: Bool
 
-    // 0 = Default (nil), 1...n = availableEfforts
+    // 0 = Auto (nil), 1...n = availableEfforts
     private let items: [String?] = [nil] + AppState.availableEfforts.map { Optional($0) }
 
     private var effectiveEffort: String? { windowState.sessionEffort }
@@ -703,7 +767,7 @@ struct EffortPickerSheet: View {
                     let effort = items[index]
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(effort?.capitalized ?? "Default")
+                            Text(effort.map { effortDisplayName($0) } ?? "Auto")
                                 .foregroundStyle(ClaudeTheme.textPrimary)
                             if effort == "max" {
                                 Text("Opus 4.6 only")

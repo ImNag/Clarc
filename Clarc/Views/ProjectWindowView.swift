@@ -9,7 +9,6 @@ struct ProjectWindowView: View {
     @State private var sidebarTab: MainView.SidebarTab = .history
     @State private var fileSearchTrigger = false
     @State private var inspectorStarted = false
-    @State private var inspectorProcess = TerminalProcess()
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
@@ -35,7 +34,7 @@ struct ProjectWindowView: View {
                     }
 
                     if inspectorStarted {
-                        inspectorPanel
+                        InspectorPanel()
                     }
                 }
             } else {
@@ -165,54 +164,4 @@ struct ProjectWindowView: View {
         }
     }
 
-    // MARK: - Inspector Panel (Terminal + Memo with tabs)
-
-    private var inspectorPanel: some View {
-        VStack(spacing: 0) {
-            // Header: icon + tab control + close button
-            HStack(spacing: 8) {
-                InspectorTabControl(selection: Bindable(windowState).inspectorTab)
-
-                Spacer()
-
-                Button {
-                    windowState.showInspector = false
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .medium))
-                        .frame(width: 20, height: 20)
-                }
-                .buttonStyle(.plain)
-                .keyboardShortcut("w", modifiers: .command)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-
-            ClaudeThemeDivider()
-
-            // Terminal content — kept in hierarchy to preserve process
-            EmbeddedTerminalView(
-                executable: "/bin/zsh",
-                arguments: ["-il"],
-                currentDirectory: windowState.selectedProject?.path,
-                process: inspectorProcess
-            )
-            .padding(8)
-            .background(ClaudeTheme.codeBackground)
-            .frame(maxHeight: windowState.inspectorTab == .terminal ? .infinity : 0)
-            .clipped()
-
-            // Memo content
-            InspectorMemoPanel()
-                .frame(maxHeight: windowState.inspectorTab == .memo ? .infinity : 0)
-                .clipped()
-        }
-        .background(ClaudeTheme.surfaceElevated)
-        .frame(
-            minWidth: windowState.showInspector ? 380 : 0,
-            maxWidth: windowState.showInspector ? .infinity : 0
-        )
-        .opacity(windowState.showInspector ? 1 : 0)
-        .clipped()
-    }
 }

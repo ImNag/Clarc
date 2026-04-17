@@ -8,9 +8,10 @@ struct FileTreeView: View {
     @Environment(AppState.self) private var appState
     @Environment(WindowState.self) private var windowState
     @State private var rootNode: FileNode?
-    @State private var isLoading = true
     @State private var isSearching = false
     @State private var searchText = ""
+    @State private var showHiddenFiles = false
+    @State private var refreshTick = 0
     @FocusState private var isSearchFieldFocused: Bool
 
     /// Returns only files matching the search query as a flat list
@@ -50,7 +51,17 @@ struct FileTreeView: View {
                 .help("Search Files (⌘F)")
 
                 Button {
-                    reload()
+                    showHiddenFiles.toggle()
+                } label: {
+                    Image(systemName: showHiddenFiles ? "eye" : "eye.slash")
+                        .font(.system(size: 11))
+                        .foregroundStyle(showHiddenFiles ? ClaudeTheme.accent : ClaudeTheme.textSecondary)
+                }
+                .buttonStyle(.borderless)
+                .help(showHiddenFiles ? "Hide Hidden Files" : "Show Hidden Files")
+
+                Button {
+                    refreshTick &+= 1
                 } label: {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 11))
@@ -73,7 +84,6 @@ struct FileTreeView: View {
                         .font(.system(size: 12))
                         .textFieldStyle(.plain)
                         .focused($isSearchFieldFocused)
-                        .onSubmit { /* No action on enter — real-time filtering */ }
 
                     if !searchText.isEmpty {
                         Button {
@@ -102,18 +112,7 @@ struct FileTreeView: View {
 
             ClaudeThemeDivider()
 
-            if isLoading {
-                VStack(spacing: 8) {
-                    Spacer()
-                    ProgressView()
-                        .controlSize(.small)
-                    Text("Loading...")
-                        .font(.system(size: 12))
-                        .foregroundStyle(ClaudeTheme.textTertiary)
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
-            } else if let root = rootNode {
+            if let root = rootNode {
                 if isSearching && !searchText.isEmpty {
                     // Search results: flat list
                     let results = filteredFiles
@@ -130,55 +129,61 @@ struct FileTreeView: View {
                         }
                         .frame(maxWidth: .infinity)
                     } else {
-                        ScrollView {
-                            LazyVStack(alignment: .leading, spacing: 0) {
-                                Text("\(results.count) files")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(ClaudeTheme.textTertiary)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 4)
+                        treeScrollView {
+                            Text("\(results.count) files")
+                                .font(.system(size: 10))
+                                .foregroundStyle(ClaudeTheme.textTertiary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 4)
 
-                                ForEach(results) { file in
-                                    SearchResultRow(node: file, searchText: searchText, onFileSelect: { node in
-                                        windowState.inspectorFile = PreviewFile(path: node.id, name: node.name)
-                                    }, onAddPath: { node in
-                                        addPathToInput(node)
-                                    })
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                } else {
-                    // Default tree view
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(root.children) { child in
-                                FileNodeRow(node: child, depth: 0, onFileSelect: { node in
+                            ForEach(results) { file in
+                                SearchResultRow(node: file, searchText: searchText, onFileSelect: { node in
                                     windowState.inspectorFile = PreviewFile(path: node.id, name: node.name)
                                 }, onAddPath: { node in
                                     addPathToInput(node)
                                 })
                             }
                         }
-                        .padding(.vertical, 4)
+                    }
+                } else {
+                    treeScrollView {
+                        ForEach(root.children) { child in
+                            FileNodeRow(node: child, depth: 0, onFileSelect: { node in
+                                windowState.inspectorFile = PreviewFile(path: node.id, name: node.name)
+                            }, onAddPath: { node in
+                                addPathToInput(node)
+                            })
+                        }
                     }
                 }
             } else {
+                // First load only — subsequent project switches keep the previous tree visible
+                // until the new scan completes (no flash).
                 VStack(spacing: 8) {
                     Spacer()
-                    Text("Unable to load files")
-                        .font(.system(size: 13))
-                        .foregroundStyle(ClaudeTheme.textSecondary)
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Loading...")
+                        .font(.system(size: 12))
+                        .foregroundStyle(ClaudeTheme.textTertiary)
                     Spacer()
                 }
                 .frame(maxWidth: .infinity)
             }
         }
-        .onAppear { reload() }
-        .onChange(of: projectPath) { _, _ in reload() }
+        // Single .task replaces onAppear + multiple onChange reload calls.
+        // SwiftUI auto-cancels the previous scan when the key changes.
+        .task(id: TreeScanKey(path: projectPath, hidden: showHiddenFiles, tick: refreshTick)) {
+            let path = projectPath
+            let hidden = showHiddenFiles
+            let node = await Task.detached(priority: .userInitiated) {
+                FileNode.scan(path: path, maxDepth: 4, showHiddenFiles: hidden)
+            }.value
+            guard !Task.isCancelled else { return }
+            rootNode = node
+        }
         .onChange(of: appState.isStreaming(in: windowState)) { old, new in
-            if old && !new { reload() }
+            if old && !new { refreshTick &+= 1 }
         }
         .onChange(of: searchTrigger) {
             withAnimation(.easeInOut(duration: 0.15)) {
@@ -198,16 +203,22 @@ struct FileTreeView: View {
         windowState.requestInputFocus = true
     }
 
-    private func reload() {
-        isLoading = true
-        Task.detached { [projectPath] in
-            let node = FileNode.scan(path: projectPath, maxDepth: 4)
-            await MainActor.run {
-                rootNode = node
-                isLoading = false
-            }
+    @ViewBuilder
+    private func treeScrollView<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0, content: content)
+                .padding(.vertical, 4)
         }
     }
+
+}
+
+// MARK: - Tree Scan Key
+
+private struct TreeScanKey: Equatable {
+    let path: String
+    let hidden: Bool
+    let tick: Int
 }
 
 // MARK: - File Node Row
@@ -224,9 +235,7 @@ private struct FileNodeRow: View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
                 if node.isDirectory {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        isExpanded.toggle()
-                    }
+                    isExpanded.toggle()
                 } else {
                     onFileSelect(node)
                 }
@@ -255,14 +264,15 @@ private struct FileNodeRow: View {
                         .foregroundStyle(node.isDirectory ? ClaudeTheme.textPrimary : ClaudeTheme.textSecondary)
                         .lineLimit(1)
 
-                    Spacer()
-
                     if node.isDirectory {
                         Text("\(node.children.count)")
                             .font(.system(size: 9))
                             .foregroundStyle(ClaudeTheme.textTertiary)
                             .padding(.horizontal, 4)
                     }
+
+                    Spacer()
+                        .frame(width: 8)
                 }
                 .padding(.vertical, 3)
                 .padding(.horizontal, 8)
@@ -399,7 +409,7 @@ struct FileNode: Identifiable, Sendable {
         }
     }
 
-    nonisolated static func scan(path: String, maxDepth: Int) -> FileNode? {
+    nonisolated static func scan(path: String, maxDepth: Int, showHiddenFiles: Bool = false) -> FileNode? {
         let fm = FileManager.default
         let url = URL(fileURLWithPath: path)
 
@@ -408,7 +418,7 @@ struct FileNode: Identifiable, Sendable {
             return nil
         }
 
-        return buildNode(url: url, fm: fm, currentDepth: 0, maxDepth: maxDepth)
+        return buildNode(url: url, fm: fm, currentDepth: 0, maxDepth: maxDepth, showHiddenFiles: showHiddenFiles)
     }
 
     private nonisolated static let ignoredNames: Set<String> = [
@@ -421,7 +431,8 @@ struct FileNode: Identifiable, Sendable {
         url: URL,
         fm: FileManager,
         currentDepth: Int,
-        maxDepth: Int
+        maxDepth: Int,
+        showHiddenFiles: Bool
     ) -> FileNode {
         let name = url.lastPathComponent
 
@@ -435,15 +446,18 @@ struct FileNode: Identifiable, Sendable {
         var children: [FileNode] = []
 
         if currentDepth < maxDepth {
+            var options: FileManager.DirectoryEnumerationOptions = []
+            if !showHiddenFiles { options.insert(.skipsHiddenFiles) }
+
             let contents = (try? fm.contentsOfDirectory(
                 at: url,
                 includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
+                options: options
             )) ?? []
 
             children = contents
                 .filter { !ignoredNames.contains($0.lastPathComponent) }
-                .map { buildNode(url: $0, fm: fm, currentDepth: currentDepth + 1, maxDepth: maxDepth) }
+                .map { buildNode(url: $0, fm: fm, currentDepth: currentDepth + 1, maxDepth: maxDepth, showHiddenFiles: showHiddenFiles) }
                 .sorted { lhs, rhs in
                     if lhs.isDirectory != rhs.isDirectory {
                         return lhs.isDirectory

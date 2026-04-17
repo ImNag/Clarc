@@ -34,7 +34,12 @@ struct FileInspectorView: View {
             } else if isEditing {
                 editingView
             } else if let content {
-                codeContentView(content)
+                if fileExtension == "md" || fileExtension == "markdown" {
+                    MarkdownPreviewView(content: content)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    codeContentView(content)
+                }
             }
         }
         .background(ClaudeTheme.background)

@@ -20,6 +20,7 @@ struct InputBarView: View {
     @State private var historyIndex: Int = -1
     @State private var pendingSend = false
     @State private var textFieldLayoutID = 0
+    @State private var queuePreviewHeight: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,13 +45,21 @@ struct InputBarView: View {
                 processItemProviders(providers)
                 return true
             }
-            .overlay {
-                if isDragOver {
-                    RoundedRectangle(cornerRadius: ClaudeTheme.cornerRadiusPill)
-                        .strokeBorder(ClaudeTheme.accent.opacity(0.6), lineWidth: 2, antialiased: true)
-                        .background(ClaudeTheme.accent.opacity(0.05), in: RoundedRectangle(cornerRadius: ClaudeTheme.cornerRadiusPill))
-                        .padding(.horizontal, 16)
-                        .allowsHitTesting(false)
+            .overlay { dragOverlay }
+            .overlay(alignment: .top) {
+                if !windowState.messageQueue.isEmpty {
+                    HStack(spacing: 0) {
+                        Spacer()
+                        queuedMessagePreviews
+                            .background(
+                                GeometryReader { geo in
+                                    Color.clear.onAppear { queuePreviewHeight = geo.size.height }
+                                        .onChange(of: geo.size.height) { _, h in queuePreviewHeight = h }
+                                }
+                            )
+                    }
+                    .offset(y: -queuePreviewHeight)
+                    .transition(.offset(y: 10).combined(with: .opacity))
                 }
             }
         }
@@ -76,10 +85,6 @@ struct InputBarView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                if !windowState.messageQueue.isEmpty {
-                    queuedMessagePreviews
-                        .transition(.offset(y: 10).combined(with: .opacity))
-                }
             }
             .padding(.horizontal, 16)
             .offset(y: -4)
@@ -416,6 +421,19 @@ struct InputBarView: View {
         return !afterAt.contains(" ")
     }
 
+    // MARK: - Drag Overlay
+
+    @ViewBuilder private var dragOverlay: some View {
+        if isDragOver {
+            let shape = RoundedRectangle(cornerRadius: ClaudeTheme.cornerRadiusPill)
+            shape
+                .strokeBorder(ClaudeTheme.accent.opacity(0.6), lineWidth: 2, antialiased: true)
+                .background(ClaudeTheme.accent.opacity(0.05), in: shape)
+                .padding(.horizontal, 16)
+                .allowsHitTesting(false)
+        }
+    }
+
     // MARK: - Queued Message Previews
 
     private var queuedMessagePreviews: some View {
@@ -427,11 +445,10 @@ struct InputBarView: View {
                         .foregroundStyle(ClaudeTheme.textSecondary.opacity(0.7))
 
                     Text(queued.text.isEmpty ? String(localized: "(attachment)", bundle: .module) : queued.text)
-                        .font(.system(size: 12))
+                        .font(.system(size: 13))
                         .foregroundStyle(ClaudeTheme.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .frame(maxWidth: 200)
 
                     if !queued.attachments.isEmpty {
                         Image(systemName: "paperclip")
@@ -453,13 +470,14 @@ struct InputBarView: View {
                     .buttonStyle(.borderless)
                 }
                 .padding(.horizontal, 10)
-                .padding(.vertical, 5)
+                .padding(.vertical, 8)
                 .background(.ultraThinMaterial)
                 .clipShape(Capsule())
+                .frame(maxWidth: 350)
                 .opacity(0.9)
             }
         }
-        .padding(.trailing, 20)
+        .padding(.trailing, 24)
         .padding(.bottom, 4)
     }
 

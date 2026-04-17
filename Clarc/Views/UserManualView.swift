@@ -176,6 +176,7 @@ enum ManualTopic: String, CaseIterable, Identifiable {
     case github
     case marketplace
     case permissions
+    case statusLine
 
     var id: String { rawValue }
 
@@ -192,6 +193,7 @@ enum ManualTopic: String, CaseIterable, Identifiable {
         case .github:          "GitHub Integration"
         case .marketplace:     "Skill Marketplace"
         case .permissions:     "Permission Requests"
+        case .statusLine:      "Status Line"
         }
     }
 
@@ -208,6 +210,7 @@ enum ManualTopic: String, CaseIterable, Identifiable {
         case .github:          "building.columns"
         case .marketplace:     "brain.head.profile"
         case .permissions:     "checkmark.shield"
+        case .statusLine:      "chart.bar.fill"
         }
     }
 
@@ -308,11 +311,14 @@ enum ManualTopic: String, CaseIterable, Identifiable {
                     body: "Use the model dropdown at the top of the chat area to switch Claude models."
                 ),
                 ManualSection(
-                    title: "Skip Permissions",
-                    body: "Toggle the shield icon at the top of the chat to auto-approve all permission prompts. Use with caution.",
+                    title: "Permission Mode",
+                    body: "Use the permission mode dropdown at the top of the chat to control how Claude requests approval before running actions.",
                     items: [
-                        KeyValueItem(key: "bolt.shield", value: "Normal mode — permission prompts appear as usual", symbolName: "bolt.shield", symbolColor: .green),
-                        KeyValueItem(key: "bolt.shield.fill", value: "Skip mode — all permissions auto-approved", symbolName: "bolt.shield.fill", symbolColor: .red),
+                        KeyValueItem(key: "Ask", value: "Default — prompts for approval before file edits and commands"),
+                        KeyValueItem(key: "Accept", value: "Auto-accepts file edits in the working directory (commands still require approval)"),
+                        KeyValueItem(key: "Plan", value: "Read-only — analyzes and plans without making edits"),
+                        KeyValueItem(key: "Auto", value: "AI auto-approves safe operations, prompts only for risky ones (requires Max/Team/Enterprise/API plan + Sonnet/Opus 4.6+)"),
+                        KeyValueItem(key: "Bypass", value: "Skips all permission checks — use only in isolated environments"),
                     ],
                     note: "Only enable Skip Permissions on projects you fully trust."
                 ),
@@ -456,15 +462,7 @@ enum ManualTopic: String, CaseIterable, Identifiable {
                 ),
                 ManualSection(
                     title: "Memo Tab",
-                    body: "A per-project rich text memo editor. Notes are auto-saved after a short pause and persist across sessions. Markdown formatting is supported.",
-                    items: [
-                        KeyValueItem(key: "#", value: "Heading levels (# / ## / ###)"),
-                        KeyValueItem(key: "**text**", value: "Bold"),
-                        KeyValueItem(key: "*text*", value: "Italic"),
-                        KeyValueItem(key: "`code`", value: "Inline code"),
-                        KeyValueItem(key: "~~text~~", value: "Strikethrough"),
-                        KeyValueItem(key: "- item", value: "Unordered list (auto-continues on Return)"),
-                    ]
+                    body: "A per-project rich text memo editor. Notes are auto-saved after a short pause and persist across sessions. Markdown formatting is supported."
                 ),
                 ManualSection(
                     title: "Interactive Terminal Popup",
@@ -508,6 +506,36 @@ enum ManualTopic: String, CaseIterable, Identifiable {
                 ),
             ]
 
+        case .statusLine:
+            [
+                ManualSection(
+                    title: "What is the Status Line?",
+                    body: "A fixed information bar at the bottom of the chat area. It shows the current project path, model, rate limit usage, context window usage, and total response time at a glance."
+                ),
+                ManualSection(
+                    title: "Displayed Items",
+                    body: "Items are shown left to right in the status line.",
+                    items: [
+                        KeyValueItem(key: "folder", value: "Project path — folder path of the currently selected project (home directory abbreviated as ~)", symbolName: "folder.fill", symbolColor: .orange),
+                        KeyValueItem(key: "cpu", value: "Model — name of the Claude model in use for this session", symbolName: "cpu", symbolColor: .green),
+                        KeyValueItem(key: "clock", value: "5h limit — API usage over the last 5 hours (bar + % + time until reset)", symbolName: "clock", symbolColor: .secondary),
+                        KeyValueItem(key: "calendar", value: "7d limit — API usage over the last 7 days (bar + % + time until reset)", symbolName: "calendar", symbolColor: .secondary),
+                        KeyValueItem(key: "memorychip", value: "context — context window usage for the current session (bar + %)", symbolName: "memorychip", symbolColor: .secondary),
+                        KeyValueItem(key: "stopwatch", value: "Total response time — cumulative time Claude spent generating responses in this session", symbolName: "stopwatch", symbolColor: .secondary),
+                    ]
+                ),
+                ManualSection(
+                    title: "Usage Colors",
+                    body: "The bar graph and percentage change color based on usage level.",
+                    items: [
+                        KeyValueItem(key: "green", value: "Below 70% — normal", symbolName: "circle.fill", symbolColor: .green),
+                        KeyValueItem(key: "yellow", value: "70–89% — caution", symbolName: "circle.fill", symbolColor: .orange),
+                        KeyValueItem(key: "red", value: "90% or above — critical", symbolName: "circle.fill", symbolColor: .red),
+                    ],
+                    note: "Usage data refreshes automatically after each response. If the initial fetch fails on launch, it retries once after 5 seconds."
+                ),
+            ]
+
         case .permissions:
             [
                 ManualSection(
@@ -518,20 +546,23 @@ enum ManualTopic: String, CaseIterable, Identifiable {
                     title: "Approval Options",
                     body: "Each permission request offers three choices.",
                     items: [
-                        KeyValueItem(key: "Allow", value: "Approve this single action", symbolName: "checkmark.circle.fill", symbolColor: .green),
-                        KeyValueItem(key: "Allow Session", value: "Approve all future requests of this type for the current session", symbolName: "checkmark.shield.fill", symbolColor: .blue),
-                        KeyValueItem(key: "Deny", value: "Reject the action", symbolName: "xmark.circle.fill", symbolColor: .red),
+                        KeyValueItem(key: "Allow", value: "Approve this single action"),
+                        KeyValueItem(key: "Allow Session", value: "Approve all future requests of this type for the current session"),
+                        KeyValueItem(key: "Deny", value: "Reject the action"),
                     ],
                     note: "If no action is taken, the request is automatically denied after 5 minutes. Press Return to Allow, or Escape to Deny."
                 ),
                 ManualSection(
-                    title: "Skip Permissions Mode",
-                    body: "Toggle the shield icon at the top of the chat to auto-approve all permission requests. This speeds up tasks but also auto-executes potentially dangerous operations — use with caution.",
+                    title: "Permission Mode",
+                    body: "Use the permission mode dropdown at the top of the chat to switch how Claude handles permissions.",
                     items: [
-                        KeyValueItem(key: "bolt.shield", value: "Normal mode — permission prompts appear as usual", symbolName: "bolt.shield", symbolColor: .green),
-                        KeyValueItem(key: "bolt.shield.fill", value: "Skip mode — all permissions auto-approved", symbolName: "bolt.shield.fill", symbolColor: .red),
+                        KeyValueItem(key: "Ask", value: "Default — prompts for approval before file edits and commands"),
+                        KeyValueItem(key: "Accept", value: "Auto-accepts file edits in the working directory (commands still require approval)"),
+                        KeyValueItem(key: "Plan", value: "Read-only — analyzes and plans without making edits"),
+                        KeyValueItem(key: "Auto", value: "AI auto-approves safe operations, prompts only for risky ones (requires Max/Team/Enterprise/API plan + Sonnet/Opus 4.6+)"),
+                        KeyValueItem(key: "Bypass", value: "Skips all permission checks — writes to .git/.vscode/.claude directories still require approval"),
                     ],
-                    note: "Only enable Skip Permissions on projects you fully trust."
+                    note: "Only enable Skip Permissions on projects you fully trust. Mode changes take effect from the next message."
                 ),
             ]
         }

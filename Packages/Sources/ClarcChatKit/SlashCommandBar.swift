@@ -339,10 +339,17 @@ public enum SlashCommandRegistry {
         let q = query.lowercased().trimmingCharacters(in: .whitespaces)
         if q.isEmpty || q == "/" { return enabledCommands }
         let search = q.hasPrefix("/") ? String(q.dropFirst()) : q
-        return enabledCommands.filter {
-            $0.name.lowercased().contains(search) ||
-            $0.description.lowercased().contains(search)
+
+        var nameMatches: [SlashCommand] = []
+        var descriptionMatches: [SlashCommand] = []
+        for cmd in enabledCommands {
+            if cmd.name.lowercased().contains(search) {
+                nameMatches.append(cmd)
+            } else if cmd.description.lowercased().contains(search) {
+                descriptionMatches.append(cmd)
+            }
         }
+        return nameMatches + descriptionMatches
     }
 }
 

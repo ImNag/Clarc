@@ -97,19 +97,27 @@ struct GitStatusView: View {
         .padding(.vertical, 8)
         .background(ClaudeTheme.surfaceSecondary.opacity(0.5))
         .onAppear {
-            refresh()
             startWatchingHEAD()
         }
         .onDisappear {
             stopWatchingHEAD()
         }
         .onChange(of: projectPath) { _, _ in
-            stopWatchingHEAD()
-            refresh()
-            startWatchingHEAD()
+            // Enqueue stop/start on the next run loop tick — keeps the watcher lifecycle
+            // out of the selectProject first-frame critical path.
+            Task { @MainActor in
+                stopWatchingHEAD()
+                startWatchingHEAD()
+            }
         }
         .onChange(of: appState.isStreaming(in: windowState)) { old, new in
             if old && !new { refresh() }
+        }
+        .task(id: projectPath) {
+            let path = projectPath
+            let fresh = await fetchGitStatus(at: path)
+            guard !Task.isCancelled else { return }
+            gitStatus = fresh
         }
     }
 
@@ -256,9 +264,11 @@ struct GitStatusView: View {
 
     private func refresh() {
         refreshTask?.cancel()
+        let path = projectPath
         refreshTask = Task {
-            gitStatus = .loading
-            gitStatus = await fetchGitStatus(at: projectPath)
+            let fresh = await fetchGitStatus(at: path)
+            guard !Task.isCancelled else { return }
+            gitStatus = fresh
         }
     }
 }
@@ -283,41 +293,24 @@ enum GitStatusInfo: Sendable {
 // MARK: - Git Status Fetcher
 
 private func fetchGitStatus(at path: String) async -> GitStatusInfo {
-    guard let branchResult = await GitHelper.run(["rev-parse", "--abbrev-ref", "HEAD"], at: path),
-          !branchResult.isEmpty else {
-        return .notARepo
-    }
+    // Run both git calls in parallel — saves the slower one's wait time (~100-250ms)
+    async let branchResult = GitHelper.run(["rev-parse", "--abbrev-ref", "HEAD"], at: path)
+    async let statusResult = GitHelper.run(["status", "--porcelain"], at: path)
+    let (b, s) = await (branchResult, statusResult)
 
-    let branch = branchResult.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let branchRaw = b, !branchRaw.isEmpty else { return .notARepo }
+    guard let statusRaw = s else { return .error }
 
-    guard let statusResult = await GitHelper.run(["status", "--porcelain"], at: path) else {
-        return .error
-    }
+    let branch = branchRaw.trimmingCharacters(in: .whitespacesAndNewlines)
 
-    if statusResult.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+    if statusRaw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
         return .clean(branch: branch)
     }
 
-    let lines = statusResult.components(separatedBy: "\n").filter { !$0.isEmpty }
-    var modified = 0
-    var added = 0
-    var deleted = 0
-
-    for line in lines {
-        guard line.count >= 2 else { continue }
-        let index = line.index(line.startIndex, offsetBy: 1)
-        let statusChar = line[index]
-        switch statusChar {
-        case "M": modified += 1
-        case "A", "?": added += 1
-        case "D": deleted += 1
-        default: modified += 1
-        }
-    }
-
+    let counts = parseGitStatusPorcelain(statusRaw)
     return .dirty(
         branch: branch,
-        changes: .init(modified: modified, added: added, deleted: deleted)
+        changes: .init(modified: counts.modified, added: counts.added, deleted: counts.deleted)
     )
 }
 
