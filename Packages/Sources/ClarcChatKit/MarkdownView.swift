@@ -404,8 +404,8 @@ struct MarkdownContentView: View {
 
     private static func isTableSeparator(_ line: String) -> Bool {
         let stripped = line.replacingOccurrences(of: " ", with: "")
-        // Must contain at least one --- pattern and only |, -, :, spaces
-        guard stripped.contains("---") else { return false }
+        // Must contain at least one -- pattern and only |, -, :, spaces (GFM: one or more dashes per cell)
+        guard stripped.contains("--") else { return false }
         return stripped.allSatisfy { $0 == "|" || $0 == "-" || $0 == ":" }
     }
 
@@ -592,7 +592,7 @@ private struct MarkdownTableView: View {
             .overlay(alignment: .leading) {
                 if colIndex > 0 {
                     Rectangle()
-                        .fill(ClaudeTheme.border)
+                        .fill(Color.primary.opacity(0.12))
                         .frame(width: 0.5)
                 }
             }
