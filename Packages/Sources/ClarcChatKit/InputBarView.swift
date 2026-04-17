@@ -25,6 +25,7 @@ struct InputBarView: View {
         VStack(spacing: 0) {
             if !windowState.messageQueue.isEmpty {
                 queuedMessagePreviews
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                     .transition(.offset(y: 10).combined(with: .opacity))
             }
 
@@ -432,7 +433,6 @@ struct InputBarView: View {
                         .foregroundStyle(ClaudeTheme.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .frame(maxWidth: 240)
 
                     if !queued.attachments.isEmpty {
                         Image(systemName: "paperclip")
@@ -457,10 +457,11 @@ struct InputBarView: View {
                 .padding(.vertical, 8)
                 .background(.ultraThinMaterial)
                 .clipShape(Capsule())
+                .frame(maxWidth: 280)
                 .opacity(0.9)
             }
         }
-        .padding(.trailing, 20)
+        .padding(.trailing, 8)
         .padding(.bottom, 4)
     }
 
