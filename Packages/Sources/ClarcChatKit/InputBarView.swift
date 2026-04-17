@@ -194,7 +194,8 @@ struct InputBarView: View {
     }
 
     private func handleInputTextChange(oldValue: String, newValue: String) {
-        let pbCount = NSPasteboard.general.changeCount
+        let pb = NSPasteboard.general
+        let pbCount = pb.changeCount
         defer {
             isPasteInProgress = false
             lastPasteChangeCount = pbCount
@@ -204,7 +205,11 @@ struct InputBarView: View {
             return
         }
         let delta = newValue.count - oldValue.count
-        if delta > 1 && (isPasteInProgress || pbCount != lastPasteChangeCount) {
+        // Also check when image/file data is present in clipboard to catch context-menu pastes,
+        // which bypass handlePasteKey and leave isPasteInProgress=false with an unchanged count.
+        let clipboardHasImageOrFile = pb.canReadItem(withDataConformingToTypes: [UTType.image.identifier]) ||
+            (pb.readObjects(forClasses: [NSURL.self]) as? [URL])?.contains(where: \.isFileURL) == true
+        if delta > 1 && (isPasteInProgress || pbCount != lastPasteChangeCount || clipboardHasImageOrFile) {
             if let result = detectPasteContent() {
                 switch result {
                 case .attachment(let attachment):
@@ -317,6 +322,8 @@ struct InputBarView: View {
                 }
                 return .handled
             }
+            // Detection failed (e.g., clipboard not yet ready); let handleInputTextChange retry.
+            isPasteInProgress = true
             return .ignored
         }
         // Multi-line text: intercept to preserve newlines, since NSTextField may strip them.
