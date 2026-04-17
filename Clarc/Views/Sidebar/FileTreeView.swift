@@ -12,6 +12,7 @@ struct FileTreeView: View {
     @State private var isSearching = false
     @State private var searchText = ""
     @State private var showHiddenFiles = false
+    @State private var scanTask: Task<Void, Never>?
     @FocusState private var isSearchFieldFocused: Bool
 
     /// Returns only files matching the search query as a flat list
@@ -84,7 +85,6 @@ struct FileTreeView: View {
                         .font(.system(size: 12))
                         .textFieldStyle(.plain)
                         .focused($isSearchFieldFocused)
-                        .onSubmit { /* No action on enter — real-time filtering */ }
 
                     if !searchText.isEmpty {
                         Button {
@@ -141,41 +141,32 @@ struct FileTreeView: View {
                         }
                         .frame(maxWidth: .infinity)
                     } else {
-                        ScrollView([.vertical, .horizontal]) {
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text("\(results.count) files")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(ClaudeTheme.textTertiary)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 4)
+                        treeScrollView {
+                            Text("\(results.count) files")
+                                .font(.system(size: 10))
+                                .foregroundStyle(ClaudeTheme.textTertiary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 4)
 
-                                ForEach(results) { file in
-                                    SearchResultRow(node: file, searchText: searchText, onFileSelect: { node in
-                                        windowState.inspectorFile = PreviewFile(path: node.id, name: node.name)
-                                    }, onAddPath: { node in
-                                        addPathToInput(node)
-                                    })
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                        .scrollIndicators(.hidden)
-                    }
-                } else {
-                    // Default tree view
-                    ScrollView([.vertical, .horizontal]) {
-                        VStack(alignment: .leading, spacing: 0) {
-                            ForEach(root.children) { child in
-                                FileNodeRow(node: child, depth: 0, onFileSelect: { node in
+                            ForEach(results) { file in
+                                SearchResultRow(node: file, searchText: searchText, onFileSelect: { node in
                                     windowState.inspectorFile = PreviewFile(path: node.id, name: node.name)
                                 }, onAddPath: { node in
                                     addPathToInput(node)
                                 })
                             }
                         }
-                        .padding(.vertical, 4)
                     }
-                    .scrollIndicators(.hidden)
+                } else {
+                    treeScrollView {
+                        ForEach(root.children) { child in
+                            FileNodeRow(node: child, depth: 0, onFileSelect: { node in
+                                windowState.inspectorFile = PreviewFile(path: node.id, name: node.name)
+                            }, onAddPath: { node in
+                                addPathToInput(node)
+                            })
+                        }
+                    }
                 }
             } else {
                 VStack(spacing: 8) {
@@ -212,10 +203,20 @@ struct FileTreeView: View {
         windowState.requestInputFocus = true
     }
 
+    @ViewBuilder
+    private func treeScrollView<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0, content: content)
+                .padding(.vertical, 4)
+        }
+    }
+
     private func reload() {
+        scanTask?.cancel()
         isLoading = true
-        Task.detached { [projectPath, showHiddenFiles] in
+        scanTask = Task.detached { [projectPath, showHiddenFiles] in
             let node = FileNode.scan(path: projectPath, maxDepth: 4, showHiddenFiles: showHiddenFiles)
+            guard !Task.isCancelled else { return }
             await MainActor.run {
                 rootNode = node
                 isLoading = false

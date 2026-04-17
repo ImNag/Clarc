@@ -78,32 +78,37 @@ struct MainView: View {
                     return base
                 }())
                 .toolbar {
-                    Button {
-                        showGitHubSheet = true
-                    } label: {
-                        Image("GitHubMark")
-                            .resizable()
-                            .frame(width: 18, height: 18)
-                            .foregroundStyle(ClaudeTheme.textSecondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(appState.isLoggedIn ? "Manage GitHub Repos" : "Connect GitHub")
+                    if columnVisibility != .detailOnly {
+                        ToolbarItemGroup(placement: .confirmationAction) {
+                            Button {
+                                showGitHubSheet = true
+                            } label: {
+                                Image("GitHubMark")
+                                    .resizable()
+                                    .frame(width: 18, height: 18)
+                                    .foregroundStyle(ClaudeTheme.textSecondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help(appState.isLoggedIn ? "Manage GitHub Repos" : "Connect GitHub")
 
-                    Button {
-                        showFilePicker = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16))
-                            .foregroundStyle(ClaudeTheme.textSecondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Add Project")
-                    .fileImporter(
-                        isPresented: $showFilePicker,
-                        allowedContentTypes: [.folder],
-                        allowsMultipleSelection: false
-                    ) { result in
-                        handleFolderSelection(result)
+                            Button {
+                                showFilePicker = true
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(ClaudeTheme.textSecondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Add Project")
+                            .fileImporter(
+                                isPresented: $showFilePicker,
+                                allowedContentTypes: [.folder],
+                                allowsMultipleSelection: false
+                            ) { result in
+                                handleFolderSelection(result)
+                            }
+                        }
+                    
                     }
                 }
 
@@ -443,7 +448,7 @@ struct InspectorPanel: View {
             .frame(maxHeight: windowState.inspectorTab == .terminal ? .infinity : 0)
             .clipped()
 
-            InspectorMemoPanel(clearTrigger: memoClearID)
+            InspectorMemoPanel(projectId: windowState.selectedProject?.id, clearTrigger: memoClearID)
                 .frame(maxHeight: windowState.inspectorTab == .memo ? .infinity : 0)
                 .clipped()
         }
@@ -569,7 +574,7 @@ struct ChatToolbarControls: View {
         case "medium": return "보통"
         case "high": return "높음"
         case "xhigh": return "매우 높음"
-        case "max": return "Max"
+        case "max": return "최대로"
         default: return effort.capitalized
         }
     }

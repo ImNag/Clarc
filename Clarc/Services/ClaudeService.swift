@@ -11,6 +11,7 @@ nonisolated enum PermissionMode: String, CaseIterable, Sendable, Codable {
     case `default`
     case acceptEdits
     case plan
+    case auto
     case bypassPermissions
 
     var displayName: String {
@@ -18,6 +19,7 @@ nonisolated enum PermissionMode: String, CaseIterable, Sendable, Codable {
         case .default: return "권한 요청"
         case .acceptEdits: return "편집 수락"
         case .plan: return "계획 모드"
+        case .auto: return "자동 모드"
         case .bypassPermissions: return "권한 건너뛰기"
         }
     }
@@ -27,6 +29,7 @@ nonisolated enum PermissionMode: String, CaseIterable, Sendable, Codable {
         case .default: return "bolt.shield"
         case .acceptEdits: return "checkmark.shield"
         case .plan: return "eye"
+        case .auto: return "wand.and.sparkles"
         case .bypassPermissions: return "bolt.shield.fill"
         }
     }

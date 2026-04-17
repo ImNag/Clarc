@@ -56,6 +56,7 @@ struct GeneralSettingsTab: View {
     @Environment(AppState.self) private var appState
     @Binding var showUserManual: Bool
     @State private var showSkillMarket = false
+    @State private var showThemePicker = false
 
     var body: some View {
         @Bindable var appState = appState
@@ -124,22 +125,52 @@ struct GeneralSettingsTab: View {
     // MARK: - Theme Section
 
     private var themeSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Theme")
                 .font(.system(size: 13, weight: .semibold))
 
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 110))],
-                spacing: 8
-            ) {
-                ForEach(AppTheme.allCases) { theme in
-                    ThemeOptionButton(
-                        theme: theme,
-                        isSelected: appState.selectedTheme == theme
-                    ) {
-                        appState.selectedTheme = theme
+            Button {
+                showThemePicker.toggle()
+            } label: {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(appState.selectedTheme.colors.accent)
+                        .frame(width: 10, height: 10)
+                    Text(appState.selectedTheme.displayName)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.primary)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(NSColor.controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Color(NSColor.separatorColor), lineWidth: 1)
+                )
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showThemePicker, arrowEdge: .bottom) {
+                VStack(spacing: 0) {
+                    ForEach(AppTheme.allCases) { theme in
+                        ThemePickerRow(
+                            theme: theme,
+                            isSelected: appState.selectedTheme == theme
+                        ) {
+                            appState.selectedTheme = theme
+                            showThemePicker = false
+                        }
                     }
                 }
+                .padding(4)
+                .frame(minWidth: 220)
+                .focusable(false)
             }
         }
     }
@@ -241,38 +272,40 @@ private struct ModelOptionButton: View {
     }
 }
 
-// MARK: - Theme Option Button
+// MARK: - Theme Picker Row
 
-private struct ThemeOptionButton: View {
+private struct ThemePickerRow: View {
     let theme: AppTheme
     let isSelected: Bool
     let action: () -> Void
 
+    @State private var isHovering = false
+
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 8)
+            HStack(spacing: 8) {
+                Circle()
                     .fill(theme.colors.accent)
-                    .frame(height: 28)
-
+                    .frame(width: 10, height: 10)
                 Text(theme.displayName)
-                    .font(.system(size: 11))
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 0)
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
             }
-            .padding(8)
-            .background(isSelected ? Color.accentColor.opacity(0.12) : Color(NSColor.controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(
-                        isSelected ? Color.accentColor : Color(NSColor.separatorColor),
-                        lineWidth: isSelected ? 1.5 : 1
-                    )
-            )
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isHovering ? Color(NSColor.selectedContentBackgroundColor).opacity(0.5) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
     }
 }
 

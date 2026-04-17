@@ -176,6 +176,7 @@ enum ManualTopic: String, CaseIterable, Identifiable {
     case github
     case marketplace
     case permissions
+    case statusLine
 
     var id: String { rawValue }
 
@@ -192,6 +193,7 @@ enum ManualTopic: String, CaseIterable, Identifiable {
         case .github:          "GitHub 연동"
         case .marketplace:     "스킬 마켓플레이스"
         case .permissions:     "권한 요청"
+        case .statusLine:      "상태 표시줄"
         }
     }
 
@@ -208,6 +210,7 @@ enum ManualTopic: String, CaseIterable, Identifiable {
         case .github:          "building.columns"
         case .marketplace:     "brain.head.profile"
         case .permissions:     "checkmark.shield"
+        case .statusLine:      "chart.bar.fill"
         }
     }
 
@@ -314,6 +317,7 @@ enum ManualTopic: String, CaseIterable, Identifiable {
                         KeyValueItem(key: "권한 요청", value: "기본 모드 — 파일 편집과 명령어 실행 시 승인 요청"),
                         KeyValueItem(key: "편집 수락", value: "작업 디렉토리 파일 편집을 자동 수락 (명령어는 여전히 승인 필요)"),
                         KeyValueItem(key: "계획 모드", value: "파일 읽기만 허용, 실제 편집 없이 계획만 제시"),
+                        KeyValueItem(key: "자동 모드", value: "AI가 안전한 작업은 자동 승인, 위험한 작업만 승인 요청 (Max/Team/Enterprise/API 플랜 + Sonnet/Opus 4.6+ 필요)"),
                         KeyValueItem(key: "권한 건너뛰기", value: "모든 권한 검사 생략 — 격리된 환경에서만 사용 권장"),
                     ],
                     note: "권한 건너뛰기 모드는 완전히 신뢰하는 프로젝트에서만 사용하세요."
@@ -458,15 +462,7 @@ enum ManualTopic: String, CaseIterable, Identifiable {
                 ),
                 ManualSection(
                     title: "메모 탭",
-                    body: "프로젝트별 리치 텍스트 메모 편집기입니다. 잠시 멈추면 자동 저장되며 세션 간에 유지됩니다. 마크다운 서식이 지원됩니다.",
-                    items: [
-                        KeyValueItem(key: "#", value: "제목 수준 (# / ## / ###)"),
-                        KeyValueItem(key: "**text**", value: "굵게"),
-                        KeyValueItem(key: "*text*", value: "기울임"),
-                        KeyValueItem(key: "`code`", value: "인라인 코드"),
-                        KeyValueItem(key: "~~text~~", value: "취소선"),
-                        KeyValueItem(key: "- item", value: "순서 없는 목록 (Return 시 자동 계속)"),
-                    ]
+                    body: "프로젝트별 메모 편집기입니다. 잠시 멈추면 자동 저장되며 세션 간에 유지됩니다."
                 ),
                 ManualSection(
                     title: "인터랙티브 터미널 팝업",
@@ -510,6 +506,36 @@ enum ManualTopic: String, CaseIterable, Identifiable {
                 ),
             ]
 
+        case .statusLine:
+            [
+                ManualSection(
+                    title: "상태 표시줄이란?",
+                    body: "채팅 영역 하단에 고정된 정보 바입니다. 현재 프로젝트 경로, 모델, 사용량 한도, 컨텍스트 사용량, 총 응답 시간을 한눈에 확인할 수 있습니다."
+                ),
+                ManualSection(
+                    title: "표시 항목",
+                    body: "상태 표시줄 왼쪽부터 오른쪽 순서로 다음 정보가 표시됩니다.",
+                    items: [
+                        KeyValueItem(key: "folder", value: "프로젝트 경로 — 현재 선택된 프로젝트의 폴더 경로 (홈 디렉토리는 ~로 축약)", symbolName: "folder.fill", symbolColor: .orange),
+                        KeyValueItem(key: "cpu", value: "모델 — 현재 세션에서 사용 중인 Claude 모델 이름", symbolName: "cpu", symbolColor: .green),
+                        KeyValueItem(key: "clock", value: "5h 한도 — 최근 5시간 API 사용량 (막대 그래프 + % + 리셋까지 남은 시간)", symbolName: "clock", symbolColor: .secondary),
+                        KeyValueItem(key: "calendar", value: "7d 한도 — 최근 7일 API 사용량 (막대 그래프 + % + 리셋까지 남은 시간)", symbolName: "calendar", symbolColor: .secondary),
+                        KeyValueItem(key: "memorychip", value: "context — 현재 세션의 컨텍스트 윈도우 사용률 (막대 그래프 + %)", symbolName: "memorychip", symbolColor: .secondary),
+                        KeyValueItem(key: "stopwatch", value: "총 응답 시간 — 현재 세션에서 Claude가 응답하는 데 걸린 시간의 합계", symbolName: "stopwatch", symbolColor: .secondary),
+                    ]
+                ),
+                ManualSection(
+                    title: "사용량 색상",
+                    body: "막대 그래프와 퍼센트 수치는 사용량에 따라 색이 바뀝니다.",
+                    items: [
+                        KeyValueItem(key: "green", value: "70% 미만 — 정상", symbolName: "circle.fill", symbolColor: .green),
+                        KeyValueItem(key: "yellow", value: "70–89% — 주의", symbolName: "circle.fill", symbolColor: .orange),
+                        KeyValueItem(key: "red", value: "90% 이상 — 위험", symbolName: "circle.fill", symbolColor: .red),
+                    ],
+                    note: "사용량 정보는 응답이 완료될 때마다 자동으로 갱신됩니다. 앱 시작 시 초기 조회에 실패하면 5초 후 한 번 재시도합니다."
+                ),
+            ]
+
         case .permissions:
             [
                 ManualSection(
@@ -533,6 +559,7 @@ enum ManualTopic: String, CaseIterable, Identifiable {
                         KeyValueItem(key: "권한 요청", value: "기본 모드 — 파일 편집과 명령어 실행 시 승인 요청"),
                         KeyValueItem(key: "편집 수락", value: "작업 디렉토리 파일 편집을 자동 수락 (명령어는 여전히 승인 필요)"),
                         KeyValueItem(key: "계획 모드", value: "파일 읽기만 허용, 실제 편집 없이 분석과 계획만 제시"),
+                        KeyValueItem(key: "자동 모드", value: "AI가 안전한 작업은 자동 승인, 위험한 작업만 승인 요청 (Max/Team/Enterprise/API 플랜 + Sonnet/Opus 4.6+ 필요)"),
                         KeyValueItem(key: "권한 건너뛰기", value: "모든 권한 검사 생략 — .git/.vscode/.claude 디렉토리 쓰기는 여전히 승인 필요"),
                     ],
                     note: "권한 건너뛰기 모드는 완전히 신뢰하는 프로젝트에서만 사용하세요. 모드 변경은 다음 메시지 전송부터 적용됩니다."
