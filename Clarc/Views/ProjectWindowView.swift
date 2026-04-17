@@ -10,6 +10,8 @@ struct ProjectWindowView: View {
     @State private var fileSearchTrigger = false
     @State private var inspectorStarted = false
     @State private var inspectorProcess = TerminalProcess()
+    @State private var terminalResetID = UUID()
+    @State private var memoClearID = UUID()
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
@@ -175,6 +177,30 @@ struct ProjectWindowView: View {
 
                 Spacer()
 
+                if windowState.inspectorTab == .terminal {
+                    Button {
+                        inspectorProcess.terminate()
+                        inspectorProcess = TerminalProcess()
+                        terminalResetID = UUID()
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.system(size: 11, weight: .medium))
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Reset Terminal")
+                } else if windowState.inspectorTab == .memo {
+                    Button {
+                        memoClearID = UUID()
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 11, weight: .medium))
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Clear Memo")
+                }
+
                 Button {
                     windowState.showInspector = false
                 } label: {
@@ -197,13 +223,14 @@ struct ProjectWindowView: View {
                 currentDirectory: windowState.selectedProject?.path,
                 process: inspectorProcess
             )
+            .id(terminalResetID)
             .padding(8)
             .background(ClaudeTheme.codeBackground)
             .frame(maxHeight: windowState.inspectorTab == .terminal ? .infinity : 0)
             .clipped()
 
             // Memo content
-            InspectorMemoPanel()
+            InspectorMemoPanel(clearTrigger: memoClearID)
                 .frame(maxHeight: windowState.inspectorTab == .memo ? .infinity : 0)
                 .clipped()
         }

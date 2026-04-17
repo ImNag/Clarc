@@ -13,6 +13,8 @@ struct MainView: View {
     @State private var fileSearchTrigger = false
     @State private var inspectorStarted = false
     @State private var inspectorProcess = TerminalProcess()
+    @State private var terminalResetID = UUID()
+    @State private var memoClearID = UUID()
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var projectToDelete: Project? = nil
     @State private var projectToRename: Project? = nil
@@ -273,6 +275,30 @@ struct MainView: View {
 
                 Spacer()
 
+                if windowState.inspectorTab == .terminal {
+                    Button {
+                        inspectorProcess.terminate()
+                        inspectorProcess = TerminalProcess()
+                        terminalResetID = UUID()
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.system(size: 11, weight: .medium))
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Reset Terminal")
+                } else if windowState.inspectorTab == .memo {
+                    Button {
+                        memoClearID = UUID()
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 11, weight: .medium))
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Clear Memo")
+                }
+
                 Button {
                     windowState.showInspector = false
                 } label: {
@@ -295,13 +321,14 @@ struct MainView: View {
                 currentDirectory: windowState.selectedProject?.path,
                 process: inspectorProcess
             )
+            .id(terminalResetID)
             .padding(8)
             .background(ClaudeTheme.codeBackground)
             .frame(maxHeight: windowState.inspectorTab == .terminal ? .infinity : 0)
             .clipped()
 
             // Memo content
-            InspectorMemoPanel()
+            InspectorMemoPanel(clearTrigger: memoClearID)
                 .frame(maxHeight: windowState.inspectorTab == .memo ? .infinity : 0)
                 .clipped()
         }
@@ -532,20 +559,33 @@ struct ChatToolbarControls: View {
         )
     }
 
+    private func effortDisplayName(_ effort: String) -> String {
+        switch effort {
+        case "low": return "낮음"
+        case "medium": return "보통"
+        case "high": return "높음"
+        case "xhigh": return "매우 높음"
+        case "max": return "Max"
+        default: return effort.capitalized
+        }
+    }
+
     var body: some View {
         HStack(spacing: 8) {
-            Button {
-                appState.dangerouslySkipPermissions.toggle()
-            } label: {
-                Image(systemName: appState.dangerouslySkipPermissions ? "bolt.shield.fill" : "bolt.shield")
-                    .font(.system(size: 16))
-                    .foregroundStyle(appState.dangerouslySkipPermissions ? .red : .green)
+            Picker("", selection: Bindable(appState).permissionMode) {
+                Section("모드") {
+                    ForEach(PermissionMode.allCases, id: \.self) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
             }
-            .buttonStyle(.plain)
-            .help(appState.dangerouslySkipPermissions ? "Skip Permissions: ON" : "Skip Permissions: OFF")
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+            .help("권한 모드: \(appState.permissionMode.displayName)")
 
             Picker("", selection: modelBinding) {
-                Section("Model") {
+                Section("모델") {
                     ForEach(AppState.availableModels, id: \.self) { model in
                         Text(model.capitalized).tag(model)
                     }
@@ -556,17 +596,17 @@ struct ChatToolbarControls: View {
             .fixedSize()
 
             Picker("", selection: effortBinding) {
-                Section("Effort") {
-                    Text("Auto").tag("auto")
+                Section("작업량") {
+                    Text("자동").tag("auto")
                     ForEach(AppState.availableEfforts, id: \.self) { effort in
-                        Text(effort == "xhigh" ? "XHigh" : effort.capitalized).tag(effort)
+                        Text(effortDisplayName(effort)).tag(effort)
                     }
                 }
             }
             .labelsHidden()
             .pickerStyle(.menu)
             .fixedSize()
-            .help("Set thinking effort level (--effort)")
+            .help("작업량(--effort) 설정")
         }
     }
 }

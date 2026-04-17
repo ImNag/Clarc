@@ -6,14 +6,17 @@ private let memoTextKey = "clarc.memoText"
 private let memoRTFKey  = "clarc.memoRTFData"
 
 struct InspectorMemoPanel: View {
+    var clearTrigger: UUID = UUID()
+
     var body: some View {
-        PlainEditorView()
+        PlainEditorView(clearTrigger: clearTrigger)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(ClaudeTheme.background)
     }
 }
 
 private struct PlainEditorView: NSViewRepresentable {
+    let clearTrigger: UUID
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
@@ -44,13 +47,21 @@ private struct PlainEditorView: NSViewRepresentable {
         return scrollView
     }
 
-    func updateNSView(_ scrollView: NSScrollView, context: Context) {}
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard clearTrigger != context.coordinator.lastClearTrigger else { return }
+        context.coordinator.lastClearTrigger = clearTrigger
+        guard let tv = scrollView.documentView as? NSTextView else { return }
+        tv.string = ""
+        UserDefaults.standard.removeObject(forKey: memoTextKey)
+        UserDefaults.standard.removeObject(forKey: memoRTFKey)
+    }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     // MARK: - Coordinator
 
     final class Coordinator: NSObject, NSTextViewDelegate {
+        var lastClearTrigger: UUID = UUID()
         private var saveTask: Task<Void, Never>?
 
         func loadText() -> String {

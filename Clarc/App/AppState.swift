@@ -129,7 +129,7 @@ final class AppState {
 
     // MARK: - Permissions
 
-    var dangerouslySkipPermissions = false
+    var permissionMode: PermissionMode = .default
 
     // MARK: - GitHub
 
@@ -274,7 +274,7 @@ final class AppState {
             UserDefaults.standard.set(true, forKey: "onboardingCompleted")
         }
 
-        dangerouslySkipPermissions = Self.readBypassPermissionsFromSettings()
+        permissionMode = Self.readPermissionModeFromSettings()
 
         do {
             try await permission.start()
@@ -574,6 +574,9 @@ final class AppState {
             let tempId = "pending-\(streamId.uuidString)"
             window.currentSessionId = tempId
             window.insertPendingPlaceholder(tempId)
+            if let model = window.sessionModel {
+                updateState(tempId) { $0.model = model }
+            }
         }
 
         let sessionKey = window.currentSessionId!
@@ -601,7 +604,7 @@ final class AppState {
         await permission.refreshRunToken()
 
         var hookSettingsPath: String?
-        if !dangerouslySkipPermissions {
+        if !permissionMode.skipsHookPipeline {
             do {
                 hookSettingsPath = try await permission.writeHookSettingsFile()
             } catch {
@@ -617,7 +620,7 @@ final class AppState {
             await saveCurrentSession(in: window)
         }
 
-        let skipPermissions = dangerouslySkipPermissions
+        let currentPermissionMode = permissionMode
         let task = Task { [weak self, window] in
             guard let self else { return }
             await self.processStream(
@@ -629,7 +632,7 @@ final class AppState {
                 model: window.sessionModel ?? self.selectedModel,
                 effort: window.sessionEffort,
                 hookSettingsPath: hookSettingsPath,
-                dangerouslySkipPermissions: skipPermissions,
+                permissionMode: currentPermissionMode,
                 projectId: project.id,
                 window: window
             )
@@ -700,7 +703,7 @@ final class AppState {
         model: String?,
         effort: String? = nil,
         hookSettingsPath: String?,
-        dangerouslySkipPermissions: Bool = false,
+        permissionMode: PermissionMode = .default,
         projectId: UUID,
         window: WindowState
     ) async {
@@ -717,7 +720,7 @@ final class AppState {
             model: model,
             effort: effort,
             hookSettingsPath: hookSettingsPath,
-            dangerouslySkipPermissions: dangerouslySkipPermissions
+            permissionMode: permissionMode
         )
 
         startFlushTimer(for: sessionKey)
@@ -1833,12 +1836,12 @@ final class AppState {
         await permission.refreshRunToken()
 
         var hookSettingsPath: String?
-        if !dangerouslySkipPermissions {
+        if !permissionMode.skipsHookPipeline {
             do { hookSettingsPath = try await permission.writeHookSettingsFile() }
             catch { logger.error("Failed to write hook settings for background queue: \(error.localizedDescription)") }
         }
 
-        let skipPermissions = dangerouslySkipPermissions
+        let currentPermissionMode = permissionMode
         let model = sessionStates[sessionKey]?.model ?? selectedModel
         let task = Task { [weak self, window] in
             guard let self else { return }
@@ -1850,7 +1853,7 @@ final class AppState {
                 internalSessionKey: sessionKey,
                 model: model,
                 hookSettingsPath: hookSettingsPath,
-                dangerouslySkipPermissions: skipPermissions,
+                permissionMode: currentPermissionMode,
                 projectId: projectId,
                 window: window
             )
@@ -1872,15 +1875,16 @@ final class AppState {
 
     // MARK: - Claude Settings Reader
 
-    private nonisolated static func readBypassPermissionsFromSettings() -> Bool {
+    private nonisolated static func readPermissionModeFromSettings() -> PermissionMode {
         let url = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/settings.json")
         guard let data = try? Data(contentsOf: url),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let permissions = json["permissions"] as? [String: Any],
-              let mode = permissions["defaultMode"] as? String
-        else { return false }
-        return mode == "bypassPermissions"
+              let mode = permissions["defaultMode"] as? String,
+              let parsed = PermissionMode(rawValue: mode)
+        else { return .default }
+        return parsed
     }
 }
 

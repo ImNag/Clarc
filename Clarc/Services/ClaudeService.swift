@@ -2,6 +2,43 @@ import Foundation
 import ClarcCore
 import os
 
+// MARK: - PermissionMode
+
+/// Mirrors Claude Code CLI's `--permission-mode` values.
+///
+/// See https://code.claude.com/docs/en/permission-modes for semantics.
+nonisolated enum PermissionMode: String, CaseIterable, Sendable, Codable {
+    case `default`
+    case acceptEdits
+    case plan
+    case bypassPermissions
+
+    var displayName: String {
+        switch self {
+        case .default: return "권한 요청"
+        case .acceptEdits: return "편집 수락"
+        case .plan: return "계획 모드"
+        case .bypassPermissions: return "권한 건너뛰기"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .default: return "bolt.shield"
+        case .acceptEdits: return "checkmark.shield"
+        case .plan: return "eye"
+        case .bypassPermissions: return "bolt.shield.fill"
+        }
+    }
+
+    /// When true, skip writing the PreToolUse hook settings and skip
+    /// the `--allowedTools` pre-approval list — bypassPermissions mode
+    /// disables the entire permission pipeline.
+    var skipsHookPipeline: Bool {
+        self == .bypassPermissions
+    }
+}
+
 // MARK: - ClaudeService
 
 /// Manages the Claude Code CLI process lifecycle and NDJSON streaming.
@@ -163,7 +200,7 @@ actor ClaudeService {
         model: String? = nil,
         effort: String? = nil,
         hookSettingsPath: String? = nil,
-        dangerouslySkipPermissions: Bool = false
+        permissionMode: PermissionMode = .default
     ) -> AsyncStream<StreamEvent> {
         let stdin = Pipe()
         let stdout = Pipe()
@@ -191,7 +228,7 @@ actor ClaudeService {
                         model: model,
                         effort: effort,
                         hookSettingsPath: hookSettingsPath,
-                        dangerouslySkipPermissions: dangerouslySkipPermissions,
+                        permissionMode: permissionMode,
                         stdinPipe: stdin,
                         stdoutPipe: stdout,
                         stderrPipe: stderr,
@@ -296,7 +333,7 @@ actor ClaudeService {
         model: String?,
         effort: String?,
         hookSettingsPath: String?,
-        dangerouslySkipPermissions: Bool
+        permissionMode: PermissionMode
     ) -> [String] {
         var args: [String] = [
             "-p",
@@ -305,9 +342,11 @@ actor ClaudeService {
             "--include-partial-messages",
         ]
 
-        if dangerouslySkipPermissions {
-            args.append("--dangerously-skip-permissions")
-        } else {
+        if permissionMode != .default {
+            args += ["--permission-mode", permissionMode.rawValue]
+        }
+
+        if !permissionMode.skipsHookPipeline {
             // Pre-approve safe tools that don't need to go through hooks via --allowedTools.
             // This eliminates HTTP round-trips from internal agent mechanics like Read/Grep/Task,
             // since no approval UI is shown for these.
@@ -350,7 +389,7 @@ actor ClaudeService {
         model: String?,
         effort: String? = nil,
         hookSettingsPath: String?,
-        dangerouslySkipPermissions: Bool = false,
+        permissionMode: PermissionMode = .default,
         stdinPipe: Pipe,
         stdoutPipe: Pipe,
         stderrPipe: Pipe,
@@ -368,7 +407,7 @@ actor ClaudeService {
             model: model,
             effort: effort,
             hookSettingsPath: hookSettingsPath,
-            dangerouslySkipPermissions: dangerouslySkipPermissions
+            permissionMode: permissionMode
         )
         proc.currentDirectoryURL = URL(fileURLWithPath: cwd)
         proc.standardInput = stdinPipe
