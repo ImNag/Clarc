@@ -572,6 +572,7 @@ private struct MarkdownTableView: View {
                     .background(rowIndex % 2 == 0 ? Color.clear : ClaudeTheme.surfaceTertiary.opacity(0.4))
                 }
             }
+            .fixedSize(horizontal: true, vertical: false)
             .clipShape(RoundedRectangle(cornerRadius: ClaudeTheme.cornerRadiusSmall))
             .overlay(
                 RoundedRectangle(cornerRadius: ClaudeTheme.cornerRadiusSmall)
@@ -588,7 +589,7 @@ private struct MarkdownTableView: View {
             .foregroundStyle(ClaudeTheme.textPrimary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .frame(minWidth: 80, maxWidth: .infinity, alignment: .leading)
+            .frame(minWidth: 80, maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .overlay(alignment: .leading) {
                 if colIndex > 0 {
                     Rectangle()
