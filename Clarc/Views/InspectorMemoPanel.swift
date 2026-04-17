@@ -477,6 +477,17 @@ private struct RichEditorView: NSViewRepresentable {
                   let storage = tv.textStorage else { return }
             guard (tv as? MemoTextView)?.isApplyingAppearance != true else { return }
 
+            // When the document is emptied (e.g. select-all + delete), residual
+            // typing attributes from the previous selection can keep applying a
+            // heading/bold style to the next input. Reset to defaults.
+            if storage.length == 0 {
+                tv.typingAttributes = [
+                    .font: defaultMemoFont,
+                    .foregroundColor: NSColor.labelColor,
+                    .paragraphStyle: defaultMemoParagraphStyle
+                ]
+            }
+
             let attr = NSAttributedString(attributedString: storage)
             cancelPendingSave()
             saveTask = Task {
