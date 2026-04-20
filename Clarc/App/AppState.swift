@@ -1045,8 +1045,15 @@ final class AppState {
 
             if eventCount == 0 {
                 let stderrOutput = await claude.consumeStderr(for: streamId)
-                addErrorMessage("No response received", in: window)
-                logger.error("[Stream:UI] no events received — appending error bubble. stderr=\(stderrOutput ?? "nil")")
+                // User cancellation revokes activeStreamId or cancels the task — distinguish
+                // that from a real "CLI died with no output" failure.
+                let wasCancelled = Task.isCancelled || stateForSession(sessionKey).activeStreamId != streamId
+                if !wasCancelled {
+                    addErrorMessage("No response received", in: window)
+                    logger.error("[Stream:UI] no events received — appending error bubble. stderr=\(stderrOutput ?? "nil")")
+                } else {
+                    logger.debug("[Stream:UI] no events received — suppressed (cancelled). stderr=\(stderrOutput ?? "nil")")
+                }
             }
 
             let isStillOwner = stateForSession(sessionKey).activeStreamId == streamId
@@ -1284,13 +1291,12 @@ final class AppState {
             state.textDeltaBuffer = ""
             state.pendingToolResults.removeAll()
             state.streamingStartDate = nil
-            // Reset the last assistant message: clear streaming flag, completion marker,
-            // and duration so a cancelled response never shows "✓ Xs" in the UI.
+            // Drop the in-progress assistant bubble so it doesn't reappear on the next turn.
             if let lastIndex = state.messages.indices.last,
-               state.messages[lastIndex].role == .assistant {
-                state.messages[lastIndex].isStreaming = false
-                state.messages[lastIndex].isResponseComplete = false
-                state.messages[lastIndex].duration = nil
+               state.messages[lastIndex].role == .assistant,
+               !state.messages[lastIndex].isError,
+               !state.messages[lastIndex].isCompactBoundary {
+                state.messages.remove(at: lastIndex)
             }
         }
 

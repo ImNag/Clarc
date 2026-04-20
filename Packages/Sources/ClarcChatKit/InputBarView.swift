@@ -424,6 +424,10 @@ struct InputBarView: View {
             return .handled
         }
         if chatBridge.isStreaming {
+            // Without this the last composing Hangul character leaks into the next input as a ghost prefix.
+            NSTextInputContext.current?.client.unmarkText()
+            textFieldLayoutID += 1
+            DispatchQueue.main.async { isInputFocused = true }
             Task { await chatBridge.cancelStreaming() }
             return .handled
         }
