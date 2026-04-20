@@ -1298,6 +1298,14 @@ final class AppState {
                !state.messages[lastIndex].isCompactBoundary {
                 state.messages.remove(at: lastIndex)
             }
+            // Restore the user message that triggered this stream into the input field.
+            if let lastIndex = state.messages.indices.last,
+               state.messages[lastIndex].role == .user,
+               !state.messages[lastIndex].isCompactBoundary {
+                let userText = state.messages[lastIndex].blocks.compactMap(\.text).joined()
+                state.messages.remove(at: lastIndex)
+                window.inputText = userText
+            }
         }
 
         window.showError = false
