@@ -55,6 +55,9 @@ public struct SlashCommandManagerView: View {
                 isDefault: SlashCommandRegistry.isDefault(name: cmd.name),
                 onSave: { updated in
                     saveCommand(original: cmd, updated: updated)
+                },
+                onDelete: {
+                    deleteCommand(cmd)
                 }
             )
         }
@@ -242,9 +245,7 @@ public struct SlashCommandManagerView: View {
         let isDefaultCmd = SlashCommandRegistry.isDefault(name: cmd.name)
 
         return Button {
-            if !isDefaultCmd {
-                editingCommand = cmd
-            }
+            editingCommand = cmd
         } label: {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -301,21 +302,9 @@ public struct SlashCommandManagerView: View {
                 .scaleEffect(0.75)
                 .help(isEnabled ? "Disable" : "Enable")
 
-                if !isDefaultCmd {
-                    Button {
-                        deleteCommand(cmd)
-                    } label: {
-                        Image(systemName: "trash")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Delete")
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 8)
@@ -421,6 +410,7 @@ struct SlashCommandEditView: View {
     let command: SlashCommand?
     let isDefault: Bool
     let onSave: (SlashCommand) -> Void
+    var onDelete: (() -> Void)? = nil
 
     @State private var name: String = ""
     @State private var desc: String = ""
@@ -470,10 +460,11 @@ struct SlashCommandEditView: View {
                             TextField(String(localized: "Command name (e.g. my-command)", bundle: .module), text: $name)
                                 .textFieldStyle(.plain)
                                 .font(.system(size: 14, design: .monospaced))
+                                .disabled(isDefault)
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Color(NSColor.textBackgroundColor))
+                        .background(isDefault ? Color(NSColor.controlBackgroundColor) : Color(NSColor.textBackgroundColor))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(NSColor.separatorColor).opacity(0.6), lineWidth: 1))
                     }
@@ -555,13 +546,25 @@ struct SlashCommandEditView: View {
                     .foregroundStyle(.secondary)
                 }
 
+                if isEditing && !isDefault {
+                    Button(role: .destructive) {
+                        onDelete?()
+                        dismiss()
+                    } label: {
+                        Text("Delete", bundle: .module)
+                            .font(.system(size: 13))
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.red)
+                }
+
                 Spacer()
 
                 Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
                     .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
 
-                Button(isEditing ? LocalizedStringKey("Save") : LocalizedStringKey("Add")) {
+                Button(isEditing ? String(localized: "Save", bundle: .module) : String(localized: "Add", bundle: .module)) {
                     let result = SlashCommand(
                         name: name.trimmingCharacters(in: .whitespaces),
                         description: desc.trimmingCharacters(in: .whitespaces),
@@ -592,9 +595,9 @@ struct SlashCommandEditView: View {
     }
 
     @ViewBuilder
-    private func fieldSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func fieldSection<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
+            Text(title, bundle: .module)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
             content()

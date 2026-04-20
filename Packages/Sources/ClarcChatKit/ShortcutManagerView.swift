@@ -55,8 +55,8 @@ public struct ShortcutManagerView: View {
                 }
             )
         }
-        .alert(importSuccess ? "Import Succeeded" : "Import Failed", isPresented: $showImportResult) {
-            Button("OK") {}
+        .alert(importSuccess ? String(localized: "Import Succeeded", bundle: .module) : String(localized: "Import Failed", bundle: .module), isPresented: $showImportResult) {
+            Button(String(localized: "OK", bundle: .module)) {}
         } message: {
             Text(importResultMessage)
         }
@@ -397,7 +397,7 @@ struct ShortcutEditView: View {
                     .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
 
-                Button(isEditing ? LocalizedStringKey("Save") : LocalizedStringKey("Add")) {
+                Button(isEditing ? String(localized: "Save", bundle: .module) : String(localized: "Add", bundle: .module)) {
                     let result = ChatShortcut(
                         id: shortcut?.id ?? UUID(),
                         name: name.trimmingCharacters(in: .whitespaces),
@@ -427,7 +427,7 @@ struct ShortcutEditView: View {
     @ViewBuilder
     private func fieldSection<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
+            Text(title, bundle: .module)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
             content()

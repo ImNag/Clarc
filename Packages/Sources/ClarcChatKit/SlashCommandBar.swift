@@ -89,11 +89,8 @@ public enum SlashCommandRegistry {
     }
 
     public static let defaultCommands: [SlashCommand] = [
-        // Custom skills
-        SlashCommand(name: "deploy", description: "Deploy iOS app (dev/qa/prod)", acceptsInput: true),
-        SlashCommand(name: "app-store-changelog", description: "Generate App Store release notes"),
-
         // CLI built-in: conversation
+        SlashCommand(name: "clear", description: "Start a new conversation"),
         SlashCommand(name: "btw", description: "Side question not added to conversation", acceptsInput: true),
         SlashCommand(name: "compact", description: "Compact conversation (focus instructions allowed)", acceptsInput: true),
         SlashCommand(name: "copy", description: "Copy last response to clipboard", acceptsInput: true),
@@ -103,6 +100,7 @@ public enum SlashCommandRegistry {
         SlashCommand(name: "rewind", description: "Rewind to a previous point", isInteractive: true),
         SlashCommand(name: "rename", description: "Rename session", acceptsInput: true),
         SlashCommand(name: "diff", description: "Diff viewer for uncommitted changes", isInteractive: true),
+        SlashCommand(name: "recap", description: "Generate a one-line session summary"),
 
         // CLI built-in: model & mode
         SlashCommand(name: "model", description: "Select/change AI model", acceptsInput: true, isInteractive: true),
@@ -124,7 +122,6 @@ public enum SlashCommandRegistry {
         SlashCommand(name: "statusline", description: "Configure status line", isInteractive: true),
         SlashCommand(name: "keybindings", description: "Configure keybindings", isInteractive: true),
         SlashCommand(name: "terminal-setup", description: "Configure terminal keybindings", isInteractive: true),
-        SlashCommand(name: "vim", description: "Toggle Vim mode", isInteractive: true),
         SlashCommand(name: "sandbox", description: "Toggle sandbox mode", isInteractive: true),
 
         // CLI built-in: project
@@ -138,9 +135,15 @@ public enum SlashCommandRegistry {
         SlashCommand(name: "insights", description: "Session analysis report"),
         SlashCommand(name: "simplify", description: "Review and fix code quality/efficiency of changes"),
         SlashCommand(name: "security-review", description: "Analyze security vulnerabilities"),
-        SlashCommand(name: "pr-comments", description: "Fetch PR comments", acceptsInput: true),
         SlashCommand(name: "loop", description: "Repeat execution (e.g. /loop 5m /foo)", acceptsInput: true),
         SlashCommand(name: "schedule", description: "Manage cloud scheduled tasks", acceptsInput: true),
+        SlashCommand(name: "autofix-pr", description: "Auto-fix PR CI failures and review comments", acceptsInput: true),
+        SlashCommand(name: "batch", description: "Orchestrate large-scale parallel changes", acceptsInput: true),
+        SlashCommand(name: "claude-api", description: "Load Claude API reference for current project"),
+        SlashCommand(name: "debug", description: "Enable debug logging and diagnose issues", acceptsInput: true),
+        SlashCommand(name: "fewer-permission-prompts", description: "Reduce permission prompts by scanning transcripts"),
+        SlashCommand(name: "review", description: "Review a pull request locally", acceptsInput: true),
+        SlashCommand(name: "team-onboarding", description: "Generate a team onboarding guide"),
 
         // CLI built-in: extensions
         SlashCommand(name: "agents", description: "Manage agent configuration", isInteractive: true),
@@ -153,8 +156,13 @@ public enum SlashCommandRegistry {
         SlashCommand(name: "desktop", description: "Continue in Desktop app", isInteractive: true),
         SlashCommand(name: "remote-control", description: "Remote control from claude.ai", isInteractive: true),
         SlashCommand(name: "remote-env", description: "Configure remote environment", isInteractive: true),
-        SlashCommand(name: "schedule-cc", description: "Manage cloud scheduled tasks", acceptsInput: true, isInteractive: true),
         SlashCommand(name: "voice", description: "Toggle voice dictation", isInteractive: true),
+        SlashCommand(name: "powerup", description: "Interactive feature lessons with demos"),
+        SlashCommand(name: "teleport", description: "Pull a web session into this terminal", isInteractive: true),
+        SlashCommand(name: "tui", description: "Set terminal UI renderer", acceptsInput: true, isInteractive: true),
+        SlashCommand(name: "ultraplan", description: "Draft a plan in an ultraplan session", acceptsInput: true, isInteractive: true),
+        SlashCommand(name: "ultrareview", description: "Deep multi-agent cloud code review", acceptsInput: true, isInteractive: true),
+        SlashCommand(name: "web-setup", description: "Connect GitHub account to Claude Code on the web"),
 
         // CLI built-in: account & system
         SlashCommand(name: "login", description: "Log in to Anthropic account", isInteractive: true),
@@ -162,6 +170,7 @@ public enum SlashCommandRegistry {
         SlashCommand(name: "install-github-app", description: "Set up GitHub Actions app", isInteractive: true),
         SlashCommand(name: "install-slack-app", description: "Install Slack app", isInteractive: true),
         SlashCommand(name: "mobile", description: "Mobile app QR code", isInteractive: true),
+        SlashCommand(name: "heapdump", description: "Write heap snapshot for memory diagnostics"),
         SlashCommand(name: "doctor", description: "Diagnose installation/configuration", isInteractive: true),
         SlashCommand(name: "status", description: "Version, model, and account status", isInteractive: true),
         SlashCommand(name: "help", description: "Show help", isInteractive: true),
