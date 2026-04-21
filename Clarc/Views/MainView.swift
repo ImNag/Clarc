@@ -645,7 +645,7 @@ struct ToolbarChipLabel: View {
 
     var body: some View {
         Text(LocalizedStringKey(title))
-            .font(.system(size: 13, weight: .medium))
+            .font(.system(size: 12, weight: .medium))
         .foregroundStyle(ClaudeTheme.textSecondary)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
