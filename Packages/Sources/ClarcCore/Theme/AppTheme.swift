@@ -311,13 +311,20 @@ public enum AppTheme: String, CaseIterable, Identifiable {
 
 // MARK: - Theme Store
 
+public extension Notification.Name {
+    static let clarcThemeDidChange = Notification.Name("com.clarc.themeDidChange")
+}
+
 @MainActor
 public final class ThemeStore {
     public static let shared = ThemeStore()
     private init() {}
 
     public var current: AppTheme = .claude {
-        didSet { colors = current.colors }
+        didSet {
+            colors = current.colors
+            NotificationCenter.default.post(name: .clarcThemeDidChange, object: nil)
+        }
     }
     public var colors: ThemeColors = .claude
 }

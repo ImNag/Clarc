@@ -14,7 +14,12 @@ private final class RenderGroupCache: @unchecked Sendable {
         init(_ groups: [RenderGroup]) { self.groups = groups }
     }
 
-    init() { cache.countLimit = 200 }
+    init() {
+        cache.countLimit = 200
+        NotificationCenter.default.addObserver(forName: .clarcThemeDidChange, object: nil, queue: .main) { [weak self] _ in
+            self?.cache.removeAllObjects()
+        }
+    }
 
     func get(_ key: String) -> [RenderGroup]? {
         cache.object(forKey: key as NSString)?.groups
@@ -126,10 +131,10 @@ struct MarkdownContentView: View {
             current.append(sep)
         }
 
-        func appendPrefixed(prefix: String, content: String, contentColor: Color? = nil, thinSep: Bool = false) {
+        func appendPrefixed(prefix: String, content: String, contentColor: Color? = nil, thinSep: Bool = false, prefixFont: Font = .system(size: 15)) {
             addNewline(thinSpacing: thinSep)
             var prefixAttr = AttributedString(prefix)
-            prefixAttr.font = .system(size: 15)
+            prefixAttr.font = prefixFont
             prefixAttr.foregroundColor = ClaudeTheme.accent
             current.append(prefixAttr)
             var itemText = inlineMarkdown(content)
@@ -193,7 +198,7 @@ struct MarkdownContentView: View {
                 let isFirstOrdered = hasContent && !inListOrQuote
                 afterSpacer = false
                 inListOrQuote = true
-                appendPrefixed(prefix: "  \(number). ", content: content, thinSep: isFirstOrdered)
+                appendPrefixed(prefix: "  \(number). ", content: content, thinSep: isFirstOrdered, prefixFont: .system(size: 15).monospacedDigit())
 
             case .blockquote(let content):
                 if hasContent && afterSpacer && inListOrQuote {
