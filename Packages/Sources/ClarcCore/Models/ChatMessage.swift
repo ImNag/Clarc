@@ -151,10 +151,9 @@ public struct ChatMessage: Identifiable, Codable, Sendable, Equatable {
     }
 
     public mutating func setToolResult(id: String, result: String, isError: Bool) {
-        guard let index = toolCallIndex(id: id) else { return }
-        let toolName = blocks[index].toolCall?.name.lowercased() ?? ""
-        let keepAlways = toolName == "agent" || toolName == "edit" || toolName == "multiedit" || toolName == "write"
-        if result.isEmpty && !isError && !keepAlways {
+        guard let index = toolCallIndex(id: id),
+              let toolCall = blocks[index].toolCall else { return }
+        if result.isEmpty && !isError && !toolCall.isKeepAlways {
             blocks.remove(at: index)
         } else {
             blocks[index].toolCall?.result = result
@@ -163,13 +162,9 @@ public struct ChatMessage: Identifiable, Codable, Sendable, Equatable {
     }
 
     public mutating func finalizeToolCalls() {
-        let keepAlwaysNames: Set<String> = ["agent", "edit", "multiedit", "multi_edit", "write"]
         blocks.removeAll { block in
             guard let toolCall = block.toolCall else { return false }
-            let name = toolCall.name.lowercased()
-            if keepAlwaysNames.contains(name) {
-                return false
-            }
+            if toolCall.isKeepAlways { return false }
             return toolCall.result == nil || (toolCall.result?.isEmpty == true && !toolCall.isError)
         }
     }
@@ -209,6 +204,17 @@ public struct ToolCall: Identifiable, Codable, Sendable, Equatable {
 
     public var hasNonEmptyResult: Bool {
         result.map { !$0.isEmpty } ?? false
+    }
+
+    /// Tool names that must stay in the message block even without a result —
+    /// either because the result would be empty by design, or because the UI
+    /// needs to render them before the user/CLI produces a result.
+    public static let keepAlwaysNames: Set<String> = [
+        "agent", "edit", "multiedit", "multi_edit", "write", "askuserquestion"
+    ]
+
+    public var isKeepAlways: Bool {
+        Self.keepAlwaysNames.contains(name.lowercased())
     }
 
     public init(

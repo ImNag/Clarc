@@ -24,12 +24,22 @@ actor PermissionServer {
     private var runToken = UUID().uuidString
     private let logger = Logger(subsystem: "com.claudework", category: "PermissionServer")
 
+    /// Resolved outcome for a pending hook: the permission decision plus an optional
+    /// `updatedInput` payload (used by AskUserQuestion to inject answers).
+    private struct DecisionOutcome: Sendable {
+        let decision: PermissionDecision
+        let updatedInput: JSONValue?
+    }
+
     /// toolUseId → the continuations and routing context for that request.
     /// On CLI retry, multiple continuations may accumulate under the same toolUseId.
     private struct Pending {
-        var continuations: [CheckedContinuation<PermissionDecision, Never>]
+        var continuations: [CheckedContinuation<DecisionOutcome, Never>]
         let sessionId: String?
         let toolName: String
+        /// Populated by `respondAskUserQuestion` so the hook response can carry back
+        /// the user's answer as `updatedInput`.
+        var updatedInput: JSONValue?
     }
     private var pending: [String: Pending] = [:]
     private var timeoutTasks: [String: Task<Void, Never>] = [:]
@@ -136,7 +146,7 @@ actor PermissionServer {
         for (id, entry) in pending {
             logger.info("Denying \(entry.continuations.count) pending request(s) for \(id) on server stop")
             for continuation in entry.continuations {
-                continuation.resume(returning: .deny)
+                continuation.resume(returning: DecisionOutcome(decision: .deny, updatedInput: nil))
             }
         }
         pending.removeAll()
@@ -152,6 +162,13 @@ actor PermissionServer {
     }
 
     // MARK: - Public API
+
+    /// Called by the UI when the user answers an AskUserQuestion prompt.
+    /// Stores the updated tool input (questions + answers) and resolves the pending hook as allow.
+    func respondAskUserQuestion(toolUseId: String, updatedInput: JSONValue) async {
+        pending[toolUseId]?.updatedInput = updatedInput
+        await respond(toolUseId: toolUseId, decision: .allow)
+    }
 
     /// Called by the UI when the user makes a decision.
     func respond(toolUseId: String, decision: PermissionDecision) async {
@@ -189,8 +206,9 @@ actor PermissionServer {
             resolved = decision
         }
 
+        let outcome = DecisionOutcome(decision: resolved, updatedInput: entry.updatedInput)
         for continuation in entry.continuations {
-            continuation.resume(returning: resolved)
+            continuation.resume(returning: outcome)
         }
     }
 
@@ -244,7 +262,7 @@ actor PermissionServer {
             "hooks": [
                 "PreToolUse": [
                     [
-                        "matcher": "^(Bash|Edit|Write|MultiEdit|mcp__.*)$",
+                        "matcher": "^(Bash|Edit|Write|MultiEdit|AskUserQuestion|mcp__.*)$",
                         "hooks": [
                             [
                                 "type": "http",
@@ -321,18 +339,19 @@ actor PermissionServer {
                     streamPermissionMode: streamMode
                 )
 
-                let decision = await waitForDecision(
+                let outcome = await waitForDecision(
                     toolUseId: hookRequest.toolUseId,
                     sessionId: hookRequest.sessionId,
                     toolName: hookRequest.toolName,
                     emit: permissionRequest
                 )
 
-                let allowed = decision == PermissionDecision.allow
+                let allowed = outcome.decision == .allow
                 try await sendHookResponse(
                     connection,
                     decision: allowed ? "allow" : "deny",
-                    reason: allowed ? "User approved" : "User denied"
+                    reason: allowed ? "User approved" : "User denied",
+                    updatedInput: outcome.updatedInput
                 )
 
             } catch {
@@ -349,13 +368,15 @@ actor PermissionServer {
         sessionId: String?,
         toolName: String,
         emit request: PermissionRequest
-    ) async -> PermissionDecision {
+    ) async -> DecisionOutcome {
         let isFirst = pending[toolUseId] == nil
-        if isFirst {
+        // AskUserQuestion is answered inline inside the chat bubble (AskUserQuestionView),
+        // so we skip the generic PermissionModal broadcast — otherwise two UIs compete.
+        if isFirst && toolName != "AskUserQuestion" {
             broadcast(request)
         }
 
-        let decision: PermissionDecision = await withCheckedContinuation { continuation in
+        let outcome: DecisionOutcome = await withCheckedContinuation { continuation in
             if var entry = pending[toolUseId] {
                 entry.continuations.append(continuation)
                 pending[toolUseId] = entry
@@ -363,7 +384,8 @@ actor PermissionServer {
                 pending[toolUseId] = Pending(
                     continuations: [continuation],
                     sessionId: sessionId,
-                    toolName: toolName
+                    toolName: toolName,
+                    updatedInput: nil
                 )
                 timeoutTasks[toolUseId] = Task { [weak self] in
                     try? await Task.sleep(nanoseconds: UInt64(Self.timeoutSeconds) * 1_000_000_000)
@@ -373,23 +395,29 @@ actor PermissionServer {
             }
         }
         timeoutTasks.removeValue(forKey: toolUseId)?.cancel()
-        return decision
+        return outcome
     }
 
     /// Remove and resume all pending continuations with .deny (timeout case).
     private func cancelPendingIfNeeded(toolUseId: String) {
         guard let entry = pending.removeValue(forKey: toolUseId) else { return }
         for continuation in entry.continuations {
-            continuation.resume(returning: .deny)
+            continuation.resume(returning: DecisionOutcome(decision: .deny, updatedInput: nil))
         }
     }
 
-    private func sendHookResponse(_ connection: NWConnection, decision: String, reason: String) async throws {
+    private func sendHookResponse(
+        _ connection: NWConnection,
+        decision: String,
+        reason: String,
+        updatedInput: JSONValue? = nil
+    ) async throws {
         let body = HookResponseBody(
             hookSpecificOutput: .init(
                 hookEventName: "PreToolUse",
                 permissionDecision: decision,
-                permissionDecisionReason: reason
+                permissionDecisionReason: reason,
+                updatedInput: updatedInput
             )
         )
         let data = try JSONEncoder().encode(body)
@@ -596,16 +624,22 @@ private struct HookResponseBody: Encodable {
         let hookEventName: String
         let permissionDecision: String
         let permissionDecisionReason: String
+        /// When non-nil, the CLI replaces the original tool input with this value.
+        /// Used for AskUserQuestion to inject the user's answers.
+        let updatedInput: JSONValue?
 
         nonisolated func encode(to encoder: Encoder) throws {
             var c = encoder.container(keyedBy: CodingKeys.self)
             try c.encode(hookEventName, forKey: .hookEventName)
             try c.encode(permissionDecision, forKey: .permissionDecision)
             try c.encode(permissionDecisionReason, forKey: .permissionDecisionReason)
+            if let updatedInput {
+                try c.encode(updatedInput, forKey: .updatedInput)
+            }
         }
 
         enum CodingKeys: String, CodingKey {
-            case hookEventName, permissionDecision, permissionDecisionReason
+            case hookEventName, permissionDecision, permissionDecisionReason, updatedInput
         }
     }
 

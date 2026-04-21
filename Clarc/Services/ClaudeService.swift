@@ -14,6 +14,9 @@ actor ClaudeService {
 
     /// Concurrently running processes — managed independently per streamId
     private var processes: [UUID: Process] = [:]
+    /// Writable stdin handles per stream — used for sending follow-up messages (e.g., AskUserQuestion responses).
+    /// Entry is removed when stdin is closed (after `result` event or on cancel).
+    private var stdinHandles: [UUID: FileHandle] = [:]
     private var inactivityTimer: Task<Void, Never>?
 
     /// Per-stream stderr accumulator — used to deliver error messages when process exits without a response
@@ -290,8 +293,11 @@ actor ClaudeService {
     // MARK: - Private Helpers
 
     /// Build arguments array for the CLI invocation.
+    ///
+    /// The user prompt is NOT a CLI argument — it is written to stdin as a JSON
+    /// user message (see `spawnProcess`) because we run the CLI with
+    /// `--input-format stream-json`.
     private func buildArguments(
-        prompt: String,
         sessionId: String?,
         model: String?,
         effort: String?,
@@ -300,6 +306,7 @@ actor ClaudeService {
     ) -> [String] {
         var args: [String] = [
             "-p",
+            "--input-format", "stream-json",
             "--output-format", "stream-json",
             "--verbose",
             "--include-partial-messages",
@@ -339,7 +346,8 @@ actor ClaudeService {
             args += ["--effort", effort]
         }
 
-        args.append(prompt)
+        // With `--input-format stream-json`, the prompt is sent via stdin as a JSON
+        // user message (see spawnProcess) rather than as a CLI argument.
         return args
     }
 
@@ -365,7 +373,6 @@ actor ClaudeService {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: binary)
         proc.arguments = buildArguments(
-            prompt: prompt,
             sessionId: sessionId,
             model: model,
             effort: effort,
@@ -394,9 +401,26 @@ actor ClaudeService {
 
         do {
             try proc.run()
-            // Close stdin immediately — each message spawns a fresh process
-            stdinPipe.fileHandleForWriting.closeFile()
+            // Keep stdin open for stream-json input protocol.
+            // The CLI reads NDJSON messages from stdin until EOF; closing stdin
+            // is how we signal "no more input" and let the process exit cleanly.
+            // This happens in `closeStdin(streamId:)` after the `result` event.
+            let stdinHandle = stdinPipe.fileHandleForWriting
             self.processes[streamId] = proc
+            self.stdinHandles[streamId] = stdinHandle
+
+            // Send the initial user prompt as an NDJSON user message.
+            let userMessage: [String: Any] = [
+                "type": "user",
+                "message": [
+                    "role": "user",
+                    "content": [
+                        ["type": "text", "text": prompt]
+                    ]
+                ]
+            ]
+            try Self.writeJSONLine(userMessage, to: stdinHandle)
+
             logger.info(
                 "Spawned claude process pid=\(proc.processIdentifier) cwd=\(cwd, privacy: .public) stream=\(streamId)"
             )
@@ -406,9 +430,35 @@ actor ClaudeService {
         }
     }
 
+    // MARK: - Stdin Writer
+
+    /// Serialize a dictionary to JSON and write to stdin as one NDJSON line.
+    /// Non-isolated to allow use from `spawnProcess` after `try proc.run()`.
+    private static func writeJSONLine(_ object: [String: Any], to handle: FileHandle) throws {
+        let data = try JSONSerialization.data(withJSONObject: object, options: [])
+        handle.write(data)
+        handle.write(Data([0x0A])) // newline
+    }
+
+    /// Close stdin for an active stream. Call this after receiving the `result` event
+    /// so the CLI process exits cleanly once it has flushed all remaining output.
+    func closeStdin(streamId: UUID) {
+        guard let handle = stdinHandles.removeValue(forKey: streamId) else { return }
+        do {
+            try handle.close()
+            logger.info("Closed stdin for stream=\(streamId)")
+        } catch {
+            logger.warning("closeStdin error for stream=\(streamId): \(error.localizedDescription)")
+        }
+    }
+
     /// Remove a process from within actor isolation, called from terminationHandler.
     private func removeProcess(streamId: UUID) {
         processes.removeValue(forKey: streamId)
+        // If stdin is still open (e.g. abnormal exit before `result`), release the handle.
+        if let handle = stdinHandles.removeValue(forKey: streamId) {
+            try? handle.close()
+        }
     }
 
     /// Read stderr asynchronously, log each line, and buffer for error reporting.
@@ -484,5 +534,9 @@ actor ClaudeService {
             process.interrupt()
         }
         processes.removeAll()
+        for (_, handle) in stdinHandles {
+            try? handle.close()
+        }
+        stdinHandles.removeAll()
     }
 }

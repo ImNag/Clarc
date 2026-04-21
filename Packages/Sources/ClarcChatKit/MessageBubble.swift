@@ -52,8 +52,8 @@ struct MessageBubble: View {
                                 if message.isStreaming { return true }
                                 if isTransientTool(toolCall) { return false }
                                 // Agent/Edit/Write tools are always shown even without a result
-                                let keepAlways: Set<String> = ["agent", "edit", "multiedit", "multi_edit", "write"]
-                                if keepAlways.contains(toolCall.name.lowercased()) { return true }
+                                // Agent/Edit/Write/AskUserQuestion are always shown even without a result
+                                if toolCall.isKeepAlways { return true }
                                 // Other non-transient tools: only show when there is a result or error (prevents empty tool bubbles)
                                 return toolCall.result != nil || toolCall.isError
                             }
@@ -71,7 +71,11 @@ struct MessageBubble: View {
                             assistantTextBubble(text: text, blockId: block.id, hasHiddenTools: !hidden.isEmpty)
                         }
                         if let toolCall = block.toolCall {
-                            ToolResultView(toolCall: toolCall, isMessageStreaming: message.isStreaming)
+                            if toolCall.name == "AskUserQuestion" {
+                                AskUserQuestionView(toolCall: toolCall)
+                            } else {
+                                ToolResultView(toolCall: toolCall, isMessageStreaming: message.isStreaming)
+                            }
                         }
                     }
                 }

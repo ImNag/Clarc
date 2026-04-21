@@ -225,3 +225,6 @@
 "Order Claude Code stickers" = "Claude Code 스티커 주문";
 "Share free 1-week passes" = "1주 무료 이용권 공유";
 "Exit CLI" = "CLI 종료";
+
+// MARK: - AskUserQuestionView
+"Question" = "질문";

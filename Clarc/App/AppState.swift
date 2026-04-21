@@ -385,6 +385,13 @@ final class AppState {
             }
         }
 
+        // Install the AskUserQuestion answer handler. When the user taps an option in the
+        // chat UI, this closure delivers the response to the currently streaming CLI.
+        window.answerQuestionHandler = { [weak self, weak window] toolUseId, optionLabel in
+            guard let self, let window else { return }
+            Task { await self.respondToAskUserQuestion(toolUseId: toolUseId, optionLabel: optionLabel, in: window) }
+        }
+
         if let projectId = selectingProjectId,
            let project = projects.first(where: { $0.id == projectId }) {
             selectProject(project, in: window)
@@ -839,6 +846,7 @@ final class AppState {
                 if !ownsSession {
                     if case .result(let resultEvent) = event {
                         logger.info("[Stream:UI] event #\(eventCount) .result received after losing ownership — saving to disk")
+                        await claude.closeStdin(streamId: streamId)
                         if sessionKey != resultEvent.sessionId {
                             if let state = sessionStates.removeValue(forKey: sessionKey) {
                                 sessionStates[resultEvent.sessionId] = state
@@ -956,6 +964,10 @@ final class AppState {
 
                 case .result(let resultEvent):
                     logger.info("[Stream:UI] event #\(eventCount) .result (gap=\(String(format: "%.1f", gap))s, isError=\(resultEvent.isError), session=\(resultEvent.sessionId))")
+
+                    // With `--input-format stream-json` the CLI stays alive waiting for more
+                    // input. Close stdin on `result` so it exits cleanly.
+                    await claude.closeStdin(streamId: streamId)
 
                     if sessionKey != resultEvent.sessionId {
                         if let state = sessionStates.removeValue(forKey: sessionKey) {
@@ -1344,6 +1356,42 @@ final class AppState {
     func respondToPermission(_ request: PermissionRequest, decision: PermissionDecision, in window: WindowState) async {
         await permission.respond(toolUseId: request.id, decision: decision)
         window.pendingPermissions.removeAll { $0.id == request.id }
+    }
+
+    // MARK: - AskUserQuestion Response
+
+    /// Deliver the user's answer for an AskUserQuestion tool call via the PreToolUse hook.
+    ///
+    /// AskUserQuestion is handled like any other PreToolUse hook: the PermissionServer is
+    /// holding the HTTP connection open waiting for a decision. We resolve it with `allow` +
+    /// `updatedInput: {questions, answers: {questionText: selectedLabel}}` so the CLI injects
+    /// the answer into the tool input and proceeds.
+    func respondToAskUserQuestion(toolUseId: String, optionLabel: String, in window: WindowState) async {
+        let key = window.currentSessionId ?? window.newSessionKey
+
+        // Build updatedInput from the tool call's original input, and reflect the answer
+        // locally in one pass so the UI updates immediately. The CLI will emit its own
+        // tool_result shortly, overwriting the optimistic value.
+        var updatedInput = JSONValue.object([
+            "questions": .array([]),
+            "answers": .object([:]),
+        ])
+        updateState(key) { state in
+            for i in state.messages.indices.reversed() {
+                guard let idx = state.messages[i].toolCallIndex(id: toolUseId),
+                      let toolInput = state.messages[i].blocks[idx].toolCall?.input else { continue }
+
+                let questionText = AskUserQuestion(input: toolInput)?.questions.first?.question ?? "question"
+                updatedInput = .object([
+                    "questions": toolInput["questions"] ?? .array([]),
+                    "answers": .object([questionText: .string(optionLabel)]),
+                ])
+                state.messages[i].setToolResult(id: toolUseId, result: optionLabel, isError: false)
+                return
+            }
+        }
+
+        await permission.respondAskUserQuestion(toolUseId: toolUseId, updatedInput: updatedInput)
     }
 
     // MARK: - Project Management

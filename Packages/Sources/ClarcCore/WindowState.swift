@@ -76,6 +76,12 @@ public final class WindowState {
 
     public var pendingPermissions: [PermissionRequest] = []
 
+    // MARK: - AskUserQuestion Response Handler
+
+    /// Invoked by chat UI when the user answers an `AskUserQuestion` tool prompt.
+    /// Parameters: (toolUseId, optionLabel). Set by `AppState` at window init.
+    public var answerQuestionHandler: (@MainActor @Sendable (String, String) -> Void)?
+
     // MARK: - UI State
 
     public var interactiveTerminal: InteractiveTerminalState?
