@@ -133,5 +133,17 @@
         type="application/octet-stream"
         sparkle:edSignature="1i+LKsqepjFvbDPW3GlcddYhdtqR8IL0CiujCW7FJQtDYbjKdtvkEgJ5vSnusSTahnQLtUbPPaxGqLpZV8KIAA==" />
     </item>
+    <item>
+      <title>Clarc v1.1.7</title>
+      <sparkle:version>13</sparkle:version>
+      <sparkle:shortVersionString>1.1.7</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <pubDate>Tue, 21 Apr 2026 09:08:19 +0000</pubDate>
+      <enclosure
+        url="https://github.com/ttnear/Clarc/releases/download/v1.1.7/Clarc-1.1.7.zip"
+        length="5830731"
+        type="application/octet-stream"
+        sparkle:edSignature="hMHvH5E/XYiVNoqrCHt+Zb7JvQhqo3PirNfk6WAx/Tw0QxqyGkxQhc4au4maOmMYELDQ7ocTgjGTjBEfsJi3AQ==" />
+    </item>
   </channel>
 </rss>
