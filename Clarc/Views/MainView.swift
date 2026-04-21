@@ -822,7 +822,7 @@ struct EffortPickerSheet: View {
                     .background(index == selectedIndex ? ClaudeTheme.accentSubtle : ClaudeTheme.surfacePrimary)
                     .clipShape(RoundedRectangle(cornerRadius: ClaudeTheme.cornerRadiusSmall))
                     .onTapGesture {
-                        windowState.sessionEffort = effort
+                        appState.setSessionEffort(effort, in: windowState)
                         dismiss()
                     }
                 }
@@ -846,7 +846,7 @@ struct EffortPickerSheet: View {
             return .handled
         }
         .onKeyPress(.return) {
-            windowState.sessionEffort = items[selectedIndex]
+            appState.setSessionEffort(items[selectedIndex], in: windowState)
             dismiss()
             return .handled
         }
