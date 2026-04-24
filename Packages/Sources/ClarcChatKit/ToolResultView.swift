@@ -5,6 +5,7 @@ struct ToolResultView: View {
     let toolCall: ToolCall
     var isMessageStreaming: Bool = false
     @State private var isExpanded: Bool
+    @State private var isDiffExpanded = false
     @Environment(WindowState.self) private var windowState
 
     /// Lowercased tool name (avoids repeated lowercased() calls)
@@ -141,7 +142,7 @@ struct ToolResultView: View {
     // MARK: - Edit Diff
 
     private var isEditTool: Bool {
-        toolNameLower == "edit" || toolNameLower == "multiedit"
+        toolNameLower == "edit" || toolNameLower == "multiedit" || toolNameLower == "multi_edit"
     }
 
     private var hasExpandableContent: Bool {
@@ -149,42 +150,78 @@ struct ToolResultView: View {
             && toolCall.input["new_string"]?.stringValue != nil
     }
 
-    private func editDiffView(oldString: String, newString: String) -> some View {
-        let oldLines = oldString.components(separatedBy: .newlines)
-        let newLines = newString.components(separatedBy: .newlines)
-
-        let allLines = oldLines + newLines
-        let commonIndent = allLines
-            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-            .map { $0.prefix(while: { $0 == " " || $0 == "\t" }).count }
-            .min() ?? 0
-        let trimmedOld = oldLines.map { $0.count >= commonIndent ? String($0.dropFirst(commonIndent)) : $0 }
-        let trimmedNew = newLines.map { $0.count >= commonIndent ? String($0.dropFirst(commonIndent)) : $0 }
-
-        return ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(trimmedOld.enumerated()), id: \.offset) { _, line in
-                    Text("- " + line)
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(ClaudeTheme.statusError)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 1)
-                        .background(ClaudeTheme.statusError.opacity(0.06))
-                }
-                ForEach(Array(trimmedNew.enumerated()), id: \.offset) { _, line in
-                    Text("+ " + line)
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(ClaudeTheme.statusSuccess)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 1)
-                        .background(ClaudeTheme.statusSuccess.opacity(0.06))
-                }
-            }
-            .textSelection(.enabled)
+    private func editHunksFromToolInput() -> [PreviewFile.EditHunk] {
+        if toolNameLower == "edit",
+           let old = toolCall.input["old_string"]?.stringValue,
+           let new = toolCall.input["new_string"]?.stringValue {
+            return [PreviewFile.EditHunk(oldString: old, newString: new)]
         }
-        .frame(maxHeight: 300)
+        if let edits = toolCall.input["edits"]?.arrayValue {
+            return edits.compactMap { entry in
+                guard let obj = entry.objectValue,
+                      let old = obj["old_string"]?.stringValue,
+                      let new = obj["new_string"]?.stringValue else { return nil }
+                return PreviewFile.EditHunk(oldString: old, newString: new)
+            }
+        }
+        return []
+    }
+
+    private func editDiffView(oldString: String, newString: String) -> some View {
+        let (trimmedOld, trimmedNew) = stripCommonIndent(
+            old: oldString.components(separatedBy: .newlines),
+            new: newString.components(separatedBy: .newlines)
+        )
+        let removedLines = trimmedOld.map { ("-", $0, false) }
+        let addedLines = trimmedNew.map { ("+", $0, true) }
+        let allLines = removedLines + addedLines
+
+        let collapseThreshold = 12
+        let needsToggle = allLines.count > collapseThreshold
+        let visibleLines = needsToggle && !isDiffExpanded
+            ? Array(allLines.prefix(collapseThreshold))
+            : allLines
+
+        return VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(visibleLines.enumerated()), id: \.offset) { _, item in
+                let (prefix, text, isAdded) = item
+                Text(prefix + " " + text)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(isAdded ? ClaudeTheme.statusSuccess : ClaudeTheme.statusError)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 1)
+                    .background((isAdded ? ClaudeTheme.statusSuccess : ClaudeTheme.statusError).opacity(0.06))
+            }
+
+            if needsToggle {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { isDiffExpanded.toggle() }
+                } label: {
+                    HStack(spacing: 6) {
+                        Group {
+                            if isDiffExpanded {
+                                Text("Show less", bundle: .module)
+                            } else {
+                                Text(String(format: String(localized: "Show %lld more lines", bundle: .module), allLines.count - collapseThreshold))
+                            }
+                        }
+                        .font(.system(size: 12, weight: .medium))
+                        Image(systemName: isDiffExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    .foregroundStyle(ClaudeTheme.textTertiary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: ClaudeTheme.cornerRadiusSmall)
+                            .fill(ClaudeTheme.surfacePrimary.opacity(0.6))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .textSelection(.enabled)
     }
 
     // MARK: - Helpers
@@ -247,11 +284,18 @@ struct ToolResultView: View {
                     windowState.inspectorFile = PreviewFile(path: filePath, name: fileName)
                 }
                 if isEditTool, toolCall.result != nil {
-                    Text(" · ")
-                        .font(.system(size: 12))
-                        .foregroundStyle(ClaudeTheme.textTertiary)
-                    fileActionLink(label: "diff") {
-                        windowState.diffFile = PreviewFile(path: filePath, name: fileName)
+                    let hunks = editHunksFromToolInput()
+                    if !hunks.isEmpty {
+                        Text(" · ")
+                            .font(.system(size: 12))
+                            .foregroundStyle(ClaudeTheme.textTertiary)
+                        fileActionLink(label: "diff") {
+                            windowState.diffFile = PreviewFile(
+                                path: filePath,
+                                name: fileName,
+                                editHunks: hunks
+                            )
+                        }
                     }
                 }
             }

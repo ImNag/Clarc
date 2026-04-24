@@ -4,14 +4,16 @@ import ClarcCore
 public struct FileDiffView: View {
     public let filePath: String
     public let fileName: String
+    public let editHunks: [PreviewFile.EditHunk]
     @Environment(WindowState.self) private var windowState
     @State private var diffLines: [DiffLine] = []
     @State private var isLoading = true
     @State private var isCopied = false
 
-    public init(filePath: String, fileName: String) {
+    public init(filePath: String, fileName: String, editHunks: [PreviewFile.EditHunk] = []) {
         self.filePath = filePath
         self.fileName = fileName
+        self.editHunks = editHunks
     }
 
     public var body: some View {
@@ -63,6 +65,7 @@ public struct FileDiffView: View {
                         .foregroundStyle(isCopied ? ClaudeTheme.statusSuccess : ClaudeTheme.textSecondary)
                 }
                 .buttonStyle(.borderless)
+                .focusable(false)
                 .help(isCopied ? "Copied" : "Copy")
             }
 
@@ -150,11 +153,16 @@ public struct FileDiffView: View {
         .background(ClaudeTheme.codeBackground)
     }
 
-    // MARK: - Git Diff
+    // MARK: - Diff Sources
 
     private func loadDiff() async {
         isLoading = true
         defer { isLoading = false }
+
+        if !editHunks.isEmpty {
+            diffLines = buildEditDiffLines(from: editHunks)
+            return
+        }
 
         let workDir = URL(fileURLWithPath: filePath).deletingLastPathComponent().path
         let raw: String
@@ -166,6 +174,22 @@ public struct FileDiffView: View {
             raw = await GitHelper.run(["show", "HEAD", "--", filePath], at: workDir) ?? ""
         }
         diffLines = parseDiff(raw)
+    }
+
+    private func buildEditDiffLines(from hunks: [PreviewFile.EditHunk]) -> [DiffLine] {
+        var lines: [DiffLine] = []
+        for (index, hunk) in hunks.enumerated() {
+            if hunks.count > 1 {
+                lines.append(DiffLine(text: "@@ edit \(index + 1) of \(hunks.count) @@", kind: .hunk))
+            }
+            let (trimmedOld, trimmedNew) = stripCommonIndent(
+                old: hunk.oldString.components(separatedBy: .newlines),
+                new: hunk.newString.components(separatedBy: .newlines)
+            )
+            lines.append(contentsOf: trimmedOld.map { DiffLine(text: "-" + $0, kind: .removed) })
+            lines.append(contentsOf: trimmedNew.map { DiffLine(text: "+" + $0, kind: .added) })
+        }
+        return lines
     }
 
     private func parseDiff(_ raw: String) -> [DiffLine] {
@@ -216,4 +240,19 @@ struct DiffLine {
 
     let text: String
     let kind: Kind
+}
+
+// MARK: - Shared Indent Utility
+
+func stripCommonIndent(old: [String], new: [String]) -> (old: [String], new: [String]) {
+    let combined = old + new
+    let commonIndent = combined
+        .filter { !$0.allSatisfy(\.isWhitespace) }
+        .map { $0.prefix(while: { $0 == " " || $0 == "\t" }).count }
+        .min() ?? 0
+    guard commonIndent > 0 else { return (old, new) }
+    func strip(_ line: String) -> String {
+        line.count >= commonIndent ? String(line.dropFirst(commonIndent)) : line
+    }
+    return (old.map(strip), new.map(strip))
 }
