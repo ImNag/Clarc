@@ -309,9 +309,8 @@ struct InputBarView: View {
         guard press.modifiers == .command else { return .ignored }
         let pb = NSPasteboard.general
 
-        if imageAttachmentFromPasteboard(pb) != nil {
-            if chatBridge.autoPreviewSettings.image,
-               let attachment = imageAttachmentFromPasteboard(pb) {
+        if let attachment = imageAttachmentFromPasteboard(pb) {
+            if chatBridge.autoPreviewSettings.image {
                 windowState.addAttachment(attachment)
             }
             return .handled
@@ -322,6 +321,7 @@ struct InputBarView: View {
                let attachment = AttachmentFactory.fromFileURL(url) {
                 windowState.addAttachment(attachment)
             } else {
+                // filePath preview disabled, or factory couldn't create an attachment — fall back to plain path
                 insertAtCursor(url.path)
             }
             return .handled
