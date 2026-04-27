@@ -522,6 +522,7 @@ final class AppState {
                     durationMs: state.durationMs,
                     turns: state.turns
                 )
+                bridge.autoPreviewSettings = self.autoPreviewSettings
             } onChange: {
                 Task { @MainActor in observe() }
             }
