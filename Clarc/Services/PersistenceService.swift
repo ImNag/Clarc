@@ -10,11 +10,7 @@ actor PersistenceService {
     private let logger = Logger(subsystem: "com.claudework", category: "PersistenceService")
 
     init(metaStore: SessionMetaStore, cliStore: CLISessionStore) {
-        let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first!
-        self.baseURL = appSupport.appendingPathComponent("Clarc")
+        self.baseURL = AppSupport.bundleScopedURL
         self.metaStore = metaStore
         self.cliStore = cliStore
     }

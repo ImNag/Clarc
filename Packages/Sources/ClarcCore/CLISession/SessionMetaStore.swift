@@ -35,11 +35,7 @@ public actor SessionMetaStore {
     private let logger = Logger(subsystem: "com.claudework", category: "SessionMetaStore")
 
     public init() {
-        let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first!
-        self.baseURL = appSupport.appendingPathComponent("Clarc/session-meta", isDirectory: true)
+        self.baseURL = AppSupport.bundleScopedURL.appendingPathComponent("session-meta", isDirectory: true)
     }
 
     public func load(sessionId: String) -> Meta {
