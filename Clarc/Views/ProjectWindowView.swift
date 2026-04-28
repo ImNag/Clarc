@@ -121,8 +121,6 @@ struct ProjectWindowView: View {
             }
 
             Spacer()
-
-            ChatToolbarControls()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -137,7 +135,9 @@ struct ProjectWindowView: View {
                 VStack(spacing: 0) {
                     chatToolbarArea
                     ClaudeThemeDivider()
-                    ChatView()
+                    ChatView {
+                        ChatToolbarControls(placement: .composer)
+                    }
                 }
                 .modifier(ChatDetailModifiers())
             } else {
