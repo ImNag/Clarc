@@ -2,22 +2,26 @@ import Combine
 import SwiftUI
 import ClarcCore
 
-public struct ChatView: View {
+public struct ChatView<InputAccessory: View>: View {
     @Environment(WindowState.self) private var windowState
     @Environment(ChatBridge.self) private var chatBridge
     @State private var shortcuts: [ChatShortcut] = []
 
-    public init() {}
+    private let inputAccessory: InputAccessory
+
+    public init(@ViewBuilder inputAccessory: () -> InputAccessory) {
+        self.inputAccessory = inputAccessory()
+    }
 
     public var body: some View {
         VStack(spacing: 0) {
-            if windowState.selectedProject != nil && !shortcuts.isEmpty {
-                shortcutBar
-            }
-
             messageScrollView
 
-            InputBarView()
+            InputBarView(accessory: inputAccessory) {
+                if windowState.selectedProject != nil && !shortcuts.isEmpty {
+                    shortcutBar
+                }
+            }
 
             StatusLineView()
         }
@@ -68,7 +72,7 @@ public struct ChatView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
         }
-        .background(ClaudeTheme.surfaceElevated)
+        .background(ClaudeTheme.background)
     }
 
     private func executeShortcut(_ shortcut: ChatShortcut) {
@@ -85,5 +89,11 @@ public struct ChatView: View {
 
     private var messageScrollView: some View {
         MessageListView(onTapBackground: { windowState.requestInputFocus = true })
+    }
+}
+
+public extension ChatView where InputAccessory == EmptyView {
+    init() {
+        self.init { EmptyView() }
     }
 }

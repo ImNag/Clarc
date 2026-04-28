@@ -2,10 +2,13 @@ import SwiftUI
 import UniformTypeIdentifiers
 import ClarcCore
 
-struct InputBarView: View {
+struct InputBarView<Accessory: View, TopAccessory: View>: View {
     @Environment(ChatBridge.self) private var chatBridge
     @Environment(WindowState.self) private var windowState
     @FocusState private var isInputFocused: Bool
+
+    private let accessory: Accessory
+    private let topAccessory: TopAccessory
 
     @State private var showFilePicker = false
     @State private var showSlashPopup = false
@@ -18,26 +21,42 @@ struct InputBarView: View {
     @State private var historyIndex: Int = -1
     @State private var inputHasMarkedText = false
     @State private var textFieldLayoutID = 0
-    @State private var queuePreviewHeight: CGFloat = 0
     @State private var measuredInputHeight: CGFloat = 20
+
+    init(accessory: Accessory, @ViewBuilder topAccessory: () -> TopAccessory) {
+        self.accessory = accessory
+        self.topAccessory = topAccessory()
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             if !windowState.attachments.isEmpty {
                 attachmentPreviews
+                    .padding(.horizontal, 16)
+                    .transition(.offset(y: 10).combined(with: .opacity))
             }
 
-            inputRow
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            topAccessory
+
+            if !windowState.messageQueue.isEmpty {
+                queuedMessagePreviews
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            inputComposer
+            .padding(.horizontal, 14)
+            .padding(.top, 16)
+            .padding(.bottom, 10)
             .background(ClaudeTheme.inputBackground)
             .clipShape(RoundedRectangle(cornerRadius: ClaudeTheme.cornerRadiusPill))
             .overlay(
                 RoundedRectangle(cornerRadius: ClaudeTheme.cornerRadiusPill)
                     .strokeBorder(ClaudeTheme.inputBorder, lineWidth: 1)
             )
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 8)
+            .padding(.top, 0)
+            .padding(.bottom, 12)
             .sheet(item: $slashDetailCommand) { cmd in CommandDetailSheet(command: cmd) }
             .sheet(item: $textPreviewAttachment) { attachment in TextPreviewSheet(attachment: attachment) }
             .onDrop(of: [.fileURL, .image], isTargeted: $isDragOver) { providers in
@@ -45,22 +64,6 @@ struct InputBarView: View {
                 return true
             }
             .overlay { dragOverlay }
-            .overlay(alignment: .top) {
-                if !windowState.messageQueue.isEmpty {
-                    HStack(spacing: 0) {
-                        Spacer()
-                        queuedMessagePreviews
-                            .background(
-                                GeometryReader { geo in
-                                    Color.clear.onAppear { queuePreviewHeight = geo.size.height }
-                                        .onChange(of: geo.size.height) { _, h in queuePreviewHeight = h }
-                                }
-                            )
-                    }
-                    .offset(y: -queuePreviewHeight)
-                    .transition(.offset(y: 10).combined(with: .opacity))
-                }
-            }
         }
         .overlay(alignment: .top) {
             HStack(alignment: .top, spacing: 0) {
@@ -87,7 +90,7 @@ struct InputBarView: View {
             }
             .padding(.horizontal, 16)
             .offset(y: -4)
-            // Show popup above the input bar by mapping top guide to bottom
+            // Show floating popups above the input bar by mapping top guide to bottom.
             .alignmentGuide(.top) { $0[.bottom] }
         }
         .onChange(of: windowState.requestInputFocus) { _, newValue in
@@ -134,29 +137,22 @@ struct InputBarView: View {
         .onTapGesture { isInputFocused = true }
     }
 
-    // MARK: - Input Row
+    // MARK: - Input Composer
 
     @ViewBuilder
-    private var inputRow: some View {
-        HStack(spacing: 10) {
-            Button {
-                showFilePicker = true
-            } label: {
-                Image(systemName: "paperclip")
-                    .font(.system(size: ClaudeTheme.size(14)))
-                    .foregroundStyle(ClaudeTheme.textSecondary)
-            }
-            .buttonStyle(.borderless)
-            .help("Attach file")
-            .fileImporter(
-                isPresented: $showFilePicker,
-                allowedContentTypes: [.item],
-                allowsMultipleSelection: true
-            ) { result in
-                handleFileImport(result)
-            }
-
+    private var inputComposer: some View {
+        VStack(alignment: .leading, spacing: 10) {
             inputTextField
+            composerActionRow
+        }
+    }
+
+    private var composerActionRow: some View {
+        HStack(spacing: 10) {
+            attachButton
+
+            accessory
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             if !showSlashPopup {
                 ClaudeSendButton(
@@ -169,6 +165,28 @@ struct InputBarView: View {
             } else {
                 ClaudeSendButton(isEnabled: false, action: {}).disabled(true)
             }
+        }
+        .frame(height: 32)
+    }
+
+    private var attachButton: some View {
+        Button {
+            showFilePicker = true
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: ClaudeTheme.size(15), weight: .regular))
+                .foregroundStyle(ClaudeTheme.textTertiary)
+                .frame(width: 32, height: 32)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.borderless)
+        .help("Attach file")
+        .fileImporter(
+            isPresented: $showFilePicker,
+            allowedContentTypes: [.item],
+            allowsMultipleSelection: true
+        ) { result in
+            handleFileImport(result)
         }
     }
 
@@ -211,8 +229,9 @@ struct InputBarView: View {
 
     private var clampedInputHeight: CGFloat {
         let oneLine: CGFloat = 20
+        let minHeight: CGFloat = 38
         let maxLines: CGFloat = 10
-        return min(max(measuredInputHeight, oneLine), oneLine * maxLines)
+        return min(max(measuredInputHeight, minHeight), oneLine * maxLines)
     }
 
     private func handleInputTextChange(oldValue: String, newValue: String) {
@@ -564,9 +583,7 @@ struct InputBarView: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                     Button {
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            windowState.dequeueMessage(id: queued.id)
-                        }
+                        removeQueuedMessage(queued.id)
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: ClaudeTheme.size(9), weight: .semibold))
@@ -575,6 +592,7 @@ struct InputBarView: View {
                             .background(ClaudeTheme.textSecondary.opacity(0.1), in: Circle())
                     }
                     .buttonStyle(.borderless)
+                    .help("Remove")
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
@@ -586,6 +604,12 @@ struct InputBarView: View {
         }
         .padding(.trailing, 24)
         .padding(.bottom, 4)
+    }
+
+    private func removeQueuedMessage(_ id: UUID) {
+        withAnimation(.easeOut(duration: 0.15)) {
+            windowState.dequeueMessage(id: id)
+        }
     }
 
     private func queuedDisplayText(_ queued: QueuedMessage) -> String {
@@ -608,7 +632,6 @@ struct InputBarView: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
             .padding(.top, 10)
             .padding(.bottom, 6)
         }
