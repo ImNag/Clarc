@@ -220,9 +220,9 @@ struct DiffLine {
 
         var foregroundColor: Color {
             switch self {
-            case .added:   return Color(hex: 0x3fb950)
-            case .removed: return Color(hex: 0xf85149)
-            case .hunk:    return Color(hex: 0x79c0ff)
+            case .added:   return ClaudeTheme.statusSuccess
+            case .removed: return ClaudeTheme.statusError
+            case .hunk:    return ClaudeTheme.textTertiary
             case .meta:    return ClaudeTheme.textTertiary
             case .context: return ClaudeTheme.textPrimary
             }
@@ -230,10 +230,9 @@ struct DiffLine {
 
         var backgroundColor: Color {
             switch self {
-            case .added:   return Color(hex: 0x3fb950).opacity(0.12)
-            case .removed: return Color(hex: 0xf85149).opacity(0.12)
-            case .hunk:    return Color(hex: 0x388bfd).opacity(0.08)
-            case .meta, .context: return .clear
+            case .added:   return ClaudeTheme.statusSuccess.opacity(0.06)
+            case .removed: return ClaudeTheme.statusError.opacity(0.06)
+            case .hunk, .meta, .context: return .clear
             }
         }
     }
