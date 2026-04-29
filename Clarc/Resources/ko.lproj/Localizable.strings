@@ -34,6 +34,9 @@
 "Notifications" = "알림";
 "Notify when response completes" = "응답 완료 시 알림";
 "Sends a system notification while Clarc is in the background." = "Clarc가 백그라운드에 있을 때 시스템 알림을 보냅니다.";
+"Claude Code Session Sync" = "Claude Code 세션 동기화";
+"Sync sessions with Claude Code CLI" = "Claude Code CLI와 세션 동기화";
+"When on, sessions in ~/.claude/projects/ appear in history and new sessions are shared with the terminal CLI. When off, only Clarc-internal sessions are used." = "켜면 ~/.claude/projects/의 세션이 기록에 표시되고, 새 세션이 터미널 CLI와 공유됩니다. 끄면 Clarc 내부 세션만 사용됩니다.";
 "Open Source" = "오픈 소스";
 "Response complete" = "응답 완료";
 
@@ -122,6 +125,7 @@
 "Session name" = "세션 이름";
 "Rename" = "이름 변경";
 "Response in progress in the background" = "백그라운드에서 응답 진행 중";
+"Synced with Claude Code CLI" = "Claude Code CLI와 동기화됨";
 "Unpin" = "고정 해제";
 "Pin" = "고정";
 "No chat history" = "채팅 기록 없음";
@@ -185,6 +189,7 @@
 "Install command:" = "설치 커맨드:";
 "Check Again" = "다시 확인";
 "Get Started" = "시작하기";
+"Share session history with the terminal CLI in ~/.claude/projects/. Turn off to keep Clarc sessions separate. You can change this later in Settings." = "~/.claude/projects/의 터미널 CLI와 세션 기록을 공유합니다. 끄면 Clarc 세션을 분리해서 사용합니다. 이후 설정에서 변경할 수 있습니다.";
 
 // MARK: - GitHubLoginView
 "Connect GitHub to fetch your repo list and add projects with a single click." = "GitHub를 연결하면 저장소 목록을 가져오고 한 번의 클릭으로 프로젝트를 추가할 수 있습니다.";
