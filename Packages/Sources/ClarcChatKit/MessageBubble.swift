@@ -12,6 +12,7 @@ struct MessageBubble: View {
     @FocusState private var isEditFocused: Bool
     @State private var isLongTextExpanded = false
     @State private var hoveredBlockId: String? = nil
+    @State private var isHoveringUserBubble = false
 
     /// Threshold (character count) for collapsing long text
     private static let longTextThreshold = 500
@@ -211,23 +212,25 @@ struct MessageBubble: View {
                 }
             }
             .bubbleStyle(.user)
-            .messageTextSelectionArea()
-            .contextMenu {
-                Button {
-                    copyToClipboard(message.content, feedback: $isCopied)
-                } label: {
-                    Label(isCopied ? String(localized: "Copied", bundle: .module) : String(localized: "Copy Message", bundle: .module), systemImage: isCopied ? "checkmark" : "doc.on.doc")
-                }
-                Button {
-                    editText = message.content
-                    isEditing = true
-                } label: {
-                    Label(String(localized: "Edit Message", bundle: .module), systemImage: "pencil")
+            .overlay(alignment: .bottomTrailing) {
+                if isHoveringUserBubble {
+                    HStack(spacing: 3) {
+                        userActionButton(systemName: isCopied ? "checkmark" : "doc.on.doc") {
+                            copyToClipboard(message.content, feedback: $isCopied)
+                        }
+                        userActionButton(systemName: "pencil") {
+                            editText = message.content
+                            isEditing = true
+                        }
+                    }
+                    .padding(5)
+                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
                 }
             }
-                .onChange(of: isEditing) { _, editing in
-                    if editing { isEditFocused = true }
-                }
+            .onHover { isHoveringUserBubble = $0 }
+            .onChange(of: isEditing) { _, editing in
+                if editing { isEditFocused = true }
+            }
         }
     }
 
@@ -259,7 +262,6 @@ struct MessageBubble: View {
         }
         .foregroundStyle(ClaudeTheme.textPrimary)
         .bubbleStyle(.assistant)
-        .messageTextSelectionArea()
         .overlay(alignment: .bottomTrailing) {
             if hoveredBlockId == blockId && !message.isStreaming {
                 copyButton(for: text)
@@ -273,13 +275,6 @@ struct MessageBubble: View {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     showTransientTools.toggle()
                 }
-            }
-        }
-        .contextMenu {
-            Button {
-                copyToClipboard(text, feedback: $isCopied)
-            } label: {
-                Label(isCopied ? String(localized: "Copied", bundle: .module) : String(localized: "Copy", bundle: .module), systemImage: isCopied ? "checkmark" : "doc.on.doc")
             }
         }
         .accessibilityLabel("Assistant: \(text)")
@@ -303,6 +298,19 @@ struct MessageBubble: View {
                 )
         }
         .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func userActionButton(systemName: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: ClaudeTheme.messageSize(9), weight: .medium))
+                .foregroundStyle(ClaudeTheme.textSecondary)
+                .frame(width: 20, height: 20)
+                .background(ClaudeTheme.surfaceSecondary.opacity(0.5), in: RoundedRectangle(cornerRadius: 5))
+        }
+        .buttonStyle(.plain)
+        .opacity(0.6)
     }
 
     // MARK: - Transient Tool Helpers
@@ -434,10 +442,3 @@ struct MessageBubble: View {
     }
 }
 
-private extension View {
-    func messageTextSelectionArea() -> some View {
-        self
-            .contentShape(.interaction, Rectangle())
-            .textSelection(.enabled)
-    }
-}

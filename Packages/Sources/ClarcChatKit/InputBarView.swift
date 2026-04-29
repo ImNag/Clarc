@@ -6,6 +6,7 @@ struct InputBarView<Accessory: View, TopAccessory: View>: View {
     @Environment(ChatBridge.self) private var chatBridge
     @Environment(WindowState.self) private var windowState
     @State private var isInputFocused: Bool = false
+    @State private var inputFocusTrigger: UUID? = nil
 
     private let accessory: Accessory
     private let topAccessory: TopAccessory
@@ -95,7 +96,7 @@ struct InputBarView<Accessory: View, TopAccessory: View>: View {
         }
         .onChange(of: windowState.requestInputFocus) { _, newValue in
             if newValue {
-                isInputFocused = true
+                inputFocusTrigger = UUID()
                 windowState.requestInputFocus = false
             }
         }
@@ -110,7 +111,7 @@ struct InputBarView<Accessory: View, TopAccessory: View>: View {
             }
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(300))
-                isInputFocused = true
+                inputFocusTrigger = UUID()
             }
         }
         .onChange(of: chatBridge.isStreaming) { _, isStreaming in
@@ -121,7 +122,7 @@ struct InputBarView<Accessory: View, TopAccessory: View>: View {
         .onAppear {
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(300))
-                isInputFocused = true
+                inputFocusTrigger = UUID()
             }
             if let path = windowState.selectedProject?.path {
                 AtFileSearch.prefetch(projectPath: path)
@@ -134,7 +135,7 @@ struct InputBarView<Accessory: View, TopAccessory: View>: View {
         }
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
-        .onTapGesture { isInputFocused = true }
+        .onTapGesture { inputFocusTrigger = UUID() }
     }
 
     // MARK: - Input Composer
@@ -196,6 +197,7 @@ struct InputBarView<Accessory: View, TopAccessory: View>: View {
             text: Bindable(windowState).inputText,
             isFocused: $isInputFocused,
             hasMarkedText: $inputHasMarkedText,
+            focusTrigger: inputFocusTrigger,
             font: .systemFont(ofSize: ClaudeTheme.size(14)),
             textColor: NSColor(ClaudeTheme.textPrimary),
             placeholder: String(localized: "Type a message...", bundle: .module),
@@ -458,7 +460,7 @@ struct InputBarView<Accessory: View, TopAccessory: View>: View {
     // Recreate the text field to clear NSTextView state (e.g. after sending) and reassert focus.
     private func resetIMEState() {
         textFieldLayoutID += 1
-        DispatchQueue.main.async { isInputFocused = true }
+        DispatchQueue.main.async { inputFocusTrigger = UUID() }
     }
 
     private func handleEscapeKey() -> Bool {

@@ -8,6 +8,9 @@ struct IMETextView: NSViewRepresentable {
     @Binding var text: String
     @Binding var isFocused: Bool
     @Binding var hasMarkedText: Bool
+    /// Bumping this UUID asks the view to take first responder. Plain SwiftUI re-renders
+    /// must NOT steal focus — that races with text-selection NSTextView in message bubbles.
+    var focusTrigger: UUID?
     var font: NSFont
     var textColor: NSColor
     var placeholder: String = ""
@@ -70,13 +73,14 @@ struct IMETextView: NSViewRepresentable {
         if textView.font != font { textView.font = font }
         if textView.textColor != textColor { textView.textColor = textColor }
         if textView.placeholder != placeholder { textView.placeholder = placeholder }
-        // isKeyWindow guard prevents an unbounded async dispatch loop while the window is
-        // inactive (sheets, modal dialogs) — makeFirstResponder would silently fail otherwise.
-        if isFocused,
-           let window = textView.window, window.isKeyWindow,
-           window.firstResponder !== textView {
-            DispatchQueue.main.async {
-                if textView.window?.firstResponder !== textView {
+        // Take first responder only when an explicit focus request fires (UUID changed).
+        // Plain SwiftUI re-renders no longer race with text selection in message bubbles.
+        if let trigger = focusTrigger,
+           trigger != context.coordinator.lastAppliedFocusTrigger {
+            context.coordinator.lastAppliedFocusTrigger = trigger
+            if let window = textView.window, window.isKeyWindow,
+               window.firstResponder !== textView {
+                DispatchQueue.main.async {
                     textView.window?.makeFirstResponder(textView)
                 }
             }
@@ -106,6 +110,7 @@ struct IMETextView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         let text: Binding<String>
         var lastAppliedText: String = ""
+        var lastAppliedFocusTrigger: UUID?
 
         init(text: Binding<String>) {
             self.text = text
