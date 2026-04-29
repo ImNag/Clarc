@@ -580,8 +580,31 @@ final class AppState {
                 Task { @MainActor in observeSettings() }
             }
         }
+        func observeReadOnly() {
+            withObservationTracking {
+                // Guarded write: @Observable doesn't equality-short-circuit, and
+                // this loop re-fires whenever allSessionSummaries mutates (every
+                // streaming tick). Skipping no-op assignments avoids dirtying
+                // ChatView on each tick.
+                let value = self.isCurrentSessionReadOnly(in: window)
+                if bridge.isReadOnly != value {
+                    bridge.isReadOnly = value
+                }
+            } onChange: {
+                Task { @MainActor in observeReadOnly() }
+            }
+        }
         Task { @MainActor in observeStream() }
         Task { @MainActor in observeSettings() }
+        Task { @MainActor in observeReadOnly() }
+    }
+
+    /// True when CLI sync is on and the current session is a pre-sync legacy
+    /// Clarc session — `--resume` against a missing CLI jsonl would silently
+    /// lose context, so we surface a read-only banner instead.
+    private func isCurrentSessionReadOnly(in window: WindowState) -> Bool {
+        guard cliSessionSyncEnabled, let sid = window.currentSessionId else { return false }
+        return allSessionSummaries.first(where: { $0.id == sid })?.origin == .legacyClarc
     }
 
     // MARK: - Edit & Resend
@@ -623,13 +646,11 @@ final class AppState {
         // S3: refuse to send into legacy Clarc-only sessions while CLI sync is
         // enabled. They have no matching jsonl in `~/.claude/projects/`, so
         // `--resume {sid}` would either spawn a new empty CLI session or error
-        // out — both lose context. The user should start a new chat to
-        // interoperate with the terminal CLI. When sync is disabled, the user
-        // has explicitly opted out of CLI interop, so legacy sends are allowed.
-        if cliSessionSyncEnabled,
-           let sid = window.currentSessionId,
-           allSessionSummaries.first(where: { $0.id == sid })?.origin == .legacyClarc {
-            logger.warning("Refusing to send to legacy session \(sid, privacy: .public): start a new chat to enable terminal sync")
+        // out — both lose context. The chat UI surfaces a read-only banner for
+        // these sessions; this is a defensive guard for non-UI entry points
+        // (slash commands, terminal commands).
+        if isCurrentSessionReadOnly(in: window) {
+            logger.warning("Refusing to send to read-only legacy session \(window.currentSessionId ?? "nil", privacy: .public)")
             return
         }
 

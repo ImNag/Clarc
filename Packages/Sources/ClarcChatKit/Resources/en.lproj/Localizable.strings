@@ -3,3 +3,7 @@
 // MARK: - ToolResultView
 "Show less" = "Show less";
 "Show more" = "Show more";
+
+// MARK: - ChatView
+"Read-only session" = "Read-only session";
+"This session was created before CLI sync and can't be continued. Start a new chat to keep the conversation in sync with the CLI." = "This session was created before CLI sync and can't be continued. Start a new chat to keep the conversation in sync with the CLI.";

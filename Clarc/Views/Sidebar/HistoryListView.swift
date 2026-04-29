@@ -115,18 +115,10 @@ struct HistoryListView: View {
     private func sessionRow(_ session: DisplaySession) -> some View {
         return HStack(spacing: 4) {
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 4) {
-                    if session.isCLISynced {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: ClaudeTheme.size(10), weight: .semibold))
-                            .foregroundStyle(ClaudeTheme.accent.opacity(0.85))
-                            .help("Synced with Claude Code CLI")
-                    }
-                    Text(session.title)
-                        .font(.system(size: ClaudeTheme.size(13)))
-                        .foregroundStyle(.primary.opacity(0.8))
-                        .lineLimit(1)
-                }
+                Text(session.title)
+                    .font(.system(size: ClaudeTheme.size(13)))
+                    .foregroundStyle(.primary.opacity(0.8))
+                    .lineLimit(1)
 
                 HStack(spacing: 4) {
                     if showAllProjects && !windowState.isProjectWindow, let projectName = session.projectName {
@@ -224,7 +216,6 @@ struct HistoryListView: View {
         let isPinned: Bool
         let isBackgroundStreaming: Bool
         let projectName: String?
-        let isCLISynced: Bool
     }
 
     private var sessions: [DisplaySession] {
@@ -245,7 +236,6 @@ struct HistoryListView: View {
     private var currentProjectSessions: [DisplaySession] {
         guard let projectId = windowState.selectedProject?.id else { return [] }
         let streamingIds = appState.backgroundStreamingSessionIds(in: windowState)
-        let syncEnabled = appState.cliSessionSyncEnabled
         return appState.allSessionSummaries
             .filter { $0.projectId == projectId }
             .sorted { Self.sessionOrder($0, $1) }
@@ -257,8 +247,7 @@ struct HistoryListView: View {
                     updatedAt: summary.updatedAt,
                     isPinned: summary.isPinned,
                     isBackgroundStreaming: streamingIds.contains(summary.id),
-                    projectName: nil,
-                    isCLISynced: syncEnabled && summary.origin == .cliBacked
+                    projectName: nil
                 )
             }
     }
@@ -268,7 +257,6 @@ struct HistoryListView: View {
             uniqueKeysWithValues: appState.projects.map { ($0.id, $0.name) }
         )
         let streamingIds = appState.backgroundStreamingSessionIds(in: windowState)
-        let syncEnabled = appState.cliSessionSyncEnabled
         var seen = Set<String>()
         return appState.allSessionSummaries
             .sorted { Self.sessionOrder($0, $1) }
@@ -281,8 +269,7 @@ struct HistoryListView: View {
                     updatedAt: summary.updatedAt,
                     isPinned: summary.isPinned,
                     isBackgroundStreaming: streamingIds.contains(summary.id),
-                    projectName: projectNames[summary.projectId],
-                    isCLISynced: syncEnabled && summary.origin == .cliBacked
+                    projectName: projectNames[summary.projectId]
                 )
             }
     }
