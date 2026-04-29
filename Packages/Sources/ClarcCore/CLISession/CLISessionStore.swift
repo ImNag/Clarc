@@ -311,35 +311,43 @@ public actor CLISessionStore {
         var firstTimestamp: Date?
         var latestAITitle: String?
 
+        // Bulk-read the jsonl in one shot. The earlier `for try await rawLine
+        // in url.lines` walked the file via AsyncBytes which produced a
+        // userland byte-by-byte pipeline — fine for streaming consumption,
+        // but ~order-of-magnitude slower than mmap+split for a finished
+        // session that fits in memory. The session-switch click waits on this
+        // call, so the difference is the gap between "messages appear
+        // instantly" and "messages appear noticeably late".
+        let data: Data
         do {
-            // jsonl is append-only; an in-flight last line will fail JSON decode
-            // and we silently skip it via try? — that satisfies S1 (safe parse
-            // during concurrent CLI writes).
-            for try await rawLine in url.lines {
-                guard !rawLine.isEmpty, let data = rawLine.data(using: .utf8) else { continue }
-
-                if rawLine.contains("\"type\":\"ai-title\""),
-                   let title = try? decoder.decode(AITitleLine.self, from: data).aiTitle,
-                   !title.isEmpty {
-                    latestAITitle = title
-                    continue
-                }
-
-                guard let decoded = try? decoder.decode(CLISessionLine.self, from: data) else { continue }
-                if firstTimestamp == nil {
-                    switch decoded {
-                    case .user(let u): firstTimestamp = u.timestamp
-                    case .assistant(let a): firstTimestamp = a.timestamp
-                    case .skip: break
-                    }
-                }
-                lines.append(decoded)
-            }
+            data = try Data(contentsOf: url, options: .mappedIfSafe)
         } catch {
-            // Likely the file doesn't exist (CocoaError fileReadNoSuchFile) or
-            // was deleted mid-read. Either way: nothing to render.
             logger.debug("loadFullSession read error for \(sid, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            if lines.isEmpty { return nil }
+            return nil
+        }
+        // Tolerate an in-flight final write (jsonl is append-only) — the trailing
+        // partial line fails JSON decode and is silently skipped, satisfying S1.
+        let content = String(data: data, encoding: .utf8) ?? ""
+        for sub in content.split(separator: "\n", omittingEmptySubsequences: true) {
+            let rawLine = String(sub)
+            guard let lineData = rawLine.data(using: .utf8) else { continue }
+
+            if rawLine.contains("\"type\":\"ai-title\""),
+               let title = try? decoder.decode(AITitleLine.self, from: lineData).aiTitle,
+               !title.isEmpty {
+                latestAITitle = title
+                continue
+            }
+
+            guard let decoded = try? decoder.decode(CLISessionLine.self, from: lineData) else { continue }
+            if firstTimestamp == nil {
+                switch decoded {
+                case .user(let u): firstTimestamp = u.timestamp
+                case .assistant(let a): firstTimestamp = a.timestamp
+                case .skip: break
+                }
+            }
+            lines.append(decoded)
         }
         guard !lines.isEmpty else { return nil }
 
