@@ -254,7 +254,7 @@ private struct RichEditorView: NSViewRepresentable {
     let projectId: UUID?
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
+        let scrollView = MemoScrollView()
         scrollView.hasVerticalScroller = true
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
@@ -519,6 +519,20 @@ private struct RichEditorView: NSViewRepresentable {
     }
 }
 
+// MARK: - MemoScrollView
+
+/// Forwards clicks landing in the empty clipView area (below short text content)
+/// to the documentView so the NSTextView still becomes first responder.
+private final class MemoScrollView: NSScrollView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let hit = super.hitTest(point)
+        if hit === contentView, let doc = documentView {
+            return doc
+        }
+        return hit
+    }
+}
+
 // MARK: - MemoTextView
 
 private final class MemoTextView: NSTextView {
@@ -648,6 +662,9 @@ private final class MemoTextView: NSTextView {
         }
         if isCheckboxChar(in: storage, at: idx),
            let state = storage.attribute(checkboxStateKey, at: idx, effectiveRange: nil) as? Bool {
+            // Toggle path skips super.mouseDown, so explicitly take first responder
+            // — otherwise clicking a checkbox doesn't move focus from the chat input.
+            window?.makeFirstResponder(self)
             toggleCheckbox(at: idx, was: state)
             return
         }
