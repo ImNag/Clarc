@@ -10,6 +10,7 @@ struct IMETextView: NSViewRepresentable {
     @Binding var hasMarkedText: Bool
     var font: NSFont
     var textColor: NSColor
+    var placeholder: String = ""
     var onReturn: () -> Void
     var onShiftReturn: () -> Void
     var onUpArrow: () -> Bool
@@ -68,6 +69,7 @@ struct IMETextView: NSViewRepresentable {
         }
         if textView.font != font { textView.font = font }
         if textView.textColor != textColor { textView.textColor = textColor }
+        if textView.placeholder != placeholder { textView.placeholder = placeholder }
         // isKeyWindow guard prevents an unbounded async dispatch loop while the window is
         // inactive (sheets, modal dialogs) — makeFirstResponder would silently fail otherwise.
         if isFocused,
@@ -127,6 +129,28 @@ fileprivate final class _IMETextView: NSTextView {
     var onEscape: () -> Bool = { false }
     var onPasteCommandV: () -> Bool = { false }
     var onMarkedTextChange: (Bool) -> Void = { _ in }
+
+    var placeholder: String = "" {
+        didSet { needsDisplay = true }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard string.isEmpty && !hasMarkedText(), !placeholder.isEmpty else { return }
+        let padding = textContainer?.lineFragmentPadding ?? 0
+        let inset = textContainerInset
+        let rect = NSRect(
+            x: inset.width + padding,
+            y: inset.height,
+            width: max(0, bounds.width - inset.width * 2 - padding),
+            height: max(0, bounds.height - inset.height * 2)
+        )
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: font ?? NSFont.systemFont(ofSize: 14),
+            .foregroundColor: NSColor.placeholderTextColor
+        ]
+        placeholder.draw(in: rect, withAttributes: attrs)
+    }
 
     override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
         super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)

@@ -192,34 +192,24 @@ struct InputBarView<Accessory: View, TopAccessory: View>: View {
 
     @ViewBuilder
     private var inputTextField: some View {
-        ZStack(alignment: .topLeading) {
-            IMETextView(
-                text: Bindable(windowState).inputText,
-                isFocused: $isInputFocused,
-                hasMarkedText: $inputHasMarkedText,
-                font: .systemFont(ofSize: ClaudeTheme.size(14)),
-                textColor: NSColor(ClaudeTheme.textPrimary),
-                onReturn: handleReturnKey,
-                onShiftReturn: handleShiftReturnKey,
-                onUpArrow: { handleUpArrow() == .handled },
-                onDownArrow: { handleDownArrow() == .handled },
-                onTab: { handleTab() == .handled },
-                onEscape: handleEscapeKey,
-                onPasteCommandV: handlePaste
-            )
-            .id(textFieldLayoutID)
-            .onChange(of: windowState.inputText) { oldValue, newValue in
-                handleInputTextChange(oldValue: oldValue, newValue: newValue)
-            }
-
-            if windowState.inputText.isEmpty && !inputHasMarkedText {
-                Text("Type a message...", bundle: .module)
-                    .font(.system(size: ClaudeTheme.size(14)))
-                    .foregroundStyle(.secondary)
-                    // Match NSTextView.lineFragmentPadding so the placeholder lines up with the cursor.
-                    .padding(.leading, 5)
-                    .allowsHitTesting(false)
-            }
+        IMETextView(
+            text: Bindable(windowState).inputText,
+            isFocused: $isInputFocused,
+            hasMarkedText: $inputHasMarkedText,
+            font: .systemFont(ofSize: ClaudeTheme.size(14)),
+            textColor: NSColor(ClaudeTheme.textPrimary),
+            placeholder: String(localized: "Type a message...", bundle: .module),
+            onReturn: handleReturnKey,
+            onShiftReturn: handleShiftReturnKey,
+            onUpArrow: { handleUpArrow() == .handled },
+            onDownArrow: { handleDownArrow() == .handled },
+            onTab: { handleTab() == .handled },
+            onEscape: handleEscapeKey,
+            onPasteCommandV: handlePaste
+        )
+        .id(textFieldLayoutID)
+        .onChange(of: windowState.inputText) { oldValue, newValue in
+            handleInputTextChange(oldValue: oldValue, newValue: newValue)
         }
         .frame(height: clampedInputHeight)
         .background(InputHeightMeasurer(text: windowState.inputText, measuredHeight: $measuredInputHeight))
