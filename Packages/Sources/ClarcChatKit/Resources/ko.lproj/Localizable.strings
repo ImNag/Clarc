@@ -15,7 +15,7 @@
 "Slash Command Manager" = "슬래시 커맨드 관리자";
 "%lld commands" = "%lld개 커맨드";
 "Reset Defaults" = "기본값 초기화";
-"Restore modified/deleted default commands to their original state" = "수정 또는 삭제된 기본 커맨드를 원래 상태로 복원합니다";
+"Restore modified default commands to their original state" = "수정한 기본 커맨드를 원래 상태로 복원합니다";
 "Export" = "내보내기";
 "Export custom commands to a JSON file" = "커스텀 커맨드를 JSON 파일로 내보냅니다";
 "Import" = "가져오기";
@@ -33,7 +33,7 @@
 "Reset Default Commands" = "기본 커맨드 초기화";
 "Reset" = "초기화";
 "Cancel" = "취소";
-"All modified or deleted default commands will be restored to their original state." = "수정하거나 삭제한 모든 기본 커맨드가 원래 상태로 복원됩니다.";
+"All modified default commands will be restored to their original state." = "수정한 모든 기본 커맨드가 원래 상태로 복원됩니다.";
 "Import Succeeded" = "가져오기 성공";
 "Import Failed" = "가져오기 실패";
 "OK" = "확인";
@@ -54,6 +54,8 @@
 "Export Slash Commands" = "슬래시 커맨드 내보내기";
 "Import Slash Commands" = "슬래시 커맨드 가져오기";
 "Invalid JSON format." = "유효하지 않은 JSON 형식입니다.";
+"Imported %lld custom commands." = "%lld개 커스텀 커맨드를 가져왔습니다.";
+"A command with this name already exists." = "이미 존재하는 커맨드 이름입니다.";
 
 // MARK: - ShortcutManagerView
 "Shortcut Manager" = "단축키 관리자";

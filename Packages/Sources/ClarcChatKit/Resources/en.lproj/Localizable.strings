@@ -7,3 +7,9 @@
 // MARK: - ChatView
 "Read-only session" = "Read-only session";
 "This session was created before CLI sync and can't be continued. Start a new chat to keep the conversation in sync with the CLI." = "This session was created before CLI sync and can't be continued. Start a new chat to keep the conversation in sync with the CLI.";
+
+// MARK: - SlashCommandManagerView
+"Imported %lld custom commands." = "Imported %lld custom commands.";
+"A command with this name already exists." = "A command with this name already exists.";
+"Restore modified default commands to their original state" = "Restore modified default commands to their original state";
+"All modified default commands will be restored to their original state." = "All modified default commands will be restored to their original state.";
