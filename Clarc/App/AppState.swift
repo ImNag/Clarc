@@ -302,11 +302,11 @@ final class AppState {
 
     // MARK: - Services
 
-    let claude = ClaudeService()
     let github = GitHubService()
     let permission = PermissionServer()
     let metaStore = SessionMetaStore()
     let cliStore: CLISessionStore
+    let claude: ClaudeService
     let persistence: PersistenceService
     let marketplace = MarketplaceService()
     let directoryWatcher = DirectoryWatcher()
@@ -315,6 +315,7 @@ final class AppState {
         let metaStore = self.metaStore
         let cliStore = CLISessionStore(metaStore: metaStore)
         self.cliStore = cliStore
+        self.claude = ClaudeService(cliStore: cliStore)
         self.persistence = PersistenceService(metaStore: metaStore, cliStore: cliStore)
     }
 

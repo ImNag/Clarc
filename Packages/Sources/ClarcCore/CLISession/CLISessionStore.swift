@@ -380,6 +380,15 @@ public actor CLISessionStore {
         )
     }
 
+    // MARK: - Picker exposure
+
+    /// Rewrite the session's jsonl so it appears in the `claude --resume` picker.
+    /// Delegates to ``PickerExposer``; uses the cwd index for accurate URL resolution.
+    public func exposeToPicker(sid: String, cwd: String) async {
+        let url = await directory(forCwd: cwd).appendingPathComponent("\(sid).jsonl")
+        await PickerExposer.normalize(jsonlAt: url)
+    }
+
     // MARK: - Deletion
 
     /// Remove the CLI-owned jsonl for a session.

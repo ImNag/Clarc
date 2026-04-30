@@ -26,10 +26,15 @@ actor ClaudeService {
     /// Consumed by terminationHandler to normalize just that jsonl.
     private var streamSessionIds: [UUID: String] = [:]
 
+    private let cliStore: CLISessionStore
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "com.claudework",
         category: "ClaudeService"
     )
+
+    init(cliStore: CLISessionStore) {
+        self.cliStore = cliStore
+    }
 
     // MARK: - Errors
 
@@ -407,9 +412,7 @@ actor ClaudeService {
             Task {
                 await self?.removeProcess(streamId: streamId)
                 if let sid = await self?.consumeSessionId(streamId: streamId) {
-                    let url = CLIProjectsDirectory.directory(forCwd: cwd)
-                        .appendingPathComponent("\(sid).jsonl")
-                    await PickerExposer.normalize(jsonlAt: url)
+                    await self?.cliStore.exposeToPicker(sid: sid, cwd: cwd)
                 }
             }
             onProcessExit?()
