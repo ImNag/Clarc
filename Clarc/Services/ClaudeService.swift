@@ -22,6 +22,10 @@ actor ClaudeService {
     /// Per-stream stderr accumulator — used to deliver error messages when process exits without a response
     private var stderrBuffers: [UUID: String] = [:]
 
+    /// Latest session_id observed in stream output, per streamId.
+    /// Consumed by terminationHandler to normalize just that jsonl.
+    private var streamSessionIds: [UUID: String] = [:]
+
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "com.claudework",
         category: "ClaudeService"
@@ -220,6 +224,7 @@ actor ClaudeService {
                 log.info("[Stream] starting stdout read loop")
 
                 var rawLineCount = 0
+                var capturedSessionId: String?
                 do {
                     for try await line in stdout.fileHandleForReading.bytes.lines {
                         guard !line.isEmpty else { continue }
@@ -233,6 +238,11 @@ actor ClaudeService {
                                 log.info("[Stream:RAW] #\(rawLineCount) type=\(type) line=\(line.prefix(600))")
                             } else if type == "stream_event" || rawLineCount % 50 == 0 {
                                 log.info("[Stream:RAW] #\(rawLineCount) type=\(type)")
+                            }
+                            if capturedSessionId == nil,
+                               let sid = (json["session_id"] as? String) ?? (json["sessionId"] as? String) {
+                                capturedSessionId = sid
+                                Task { await self.recordSessionId(streamId: streamId, sessionId: sid) }
                             }
                         } else if rawLineCount <= 30 {
                             log.info("[Stream:RAW] #\(rawLineCount) non-JSON line=\(line.prefix(600))")
@@ -394,8 +404,14 @@ actor ClaudeService {
             log.info(
                 "claude process exited — status: \(status), reason: \(reason.rawValue), stream=\(streamId)"
             )
-            // Remove the terminated process from the dictionary (actor isolation guaranteed)
-            Task { await self?.removeProcess(streamId: streamId) }
+            Task {
+                await self?.removeProcess(streamId: streamId)
+                if let sid = await self?.consumeSessionId(streamId: streamId) {
+                    let url = CLIProjectsDirectory.directory(forCwd: cwd)
+                        .appendingPathComponent("\(sid).jsonl")
+                    await PickerExposer.normalize(jsonlAt: url)
+                }
+            }
             onProcessExit?()
         }
 
@@ -459,6 +475,14 @@ actor ClaudeService {
         if let handle = stdinHandles.removeValue(forKey: streamId) {
             try? handle.close()
         }
+    }
+
+    private func recordSessionId(streamId: UUID, sessionId: String) {
+        streamSessionIds[streamId] = sessionId
+    }
+
+    private func consumeSessionId(streamId: UUID) -> String? {
+        streamSessionIds.removeValue(forKey: streamId)
     }
 
     /// Read stderr asynchronously, log each line, and buffer for error reporting.
