@@ -68,13 +68,6 @@ struct GeneralSettingsTab: View {
                 Divider()
                 notificationsSection(appState: $appState.notificationsEnabled)
                 Divider()
-                toggleSection(
-                    title: "Claude Code Session Sync",
-                    label: "Sync sessions with Claude Code CLI",
-                    detail: "When on, sessions in ~/.claude/projects/ appear in history and new sessions are shared with the terminal CLI. When off, only Clarc-internal sessions are used.",
-                    isOn: $appState.cliSessionSyncEnabled
-                )
-                Divider()
                 VStack(alignment: .leading, spacing: 8) {
                     skillMarketSection
                     helpSection

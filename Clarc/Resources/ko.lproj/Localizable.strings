@@ -34,9 +34,6 @@
 "Notifications" = "알림";
 "Notify when response completes" = "응답 완료 시 알림";
 "Sends a system notification while Clarc is in the background." = "Clarc가 백그라운드에 있을 때 시스템 알림을 보냅니다.";
-"Claude Code Session Sync" = "Claude Code 세션 동기화";
-"Sync sessions with Claude Code CLI" = "Claude Code CLI와 세션 동기화";
-"When on, sessions in ~/.claude/projects/ appear in history and new sessions are shared with the terminal CLI. When off, only Clarc-internal sessions are used." = "켜면 ~/.claude/projects/의 세션이 기록에 표시되고, 새 세션이 터미널 CLI와 공유됩니다. 끄면 Clarc 내부 세션만 사용됩니다.";
 "Open Source" = "오픈 소스";
 "Response complete" = "응답 완료";
 
@@ -125,7 +122,6 @@
 "Session name" = "세션 이름";
 "Rename" = "이름 변경";
 "Response in progress in the background" = "백그라운드에서 응답 진행 중";
-"Synced with Claude Code CLI" = "Claude Code CLI와 동기화됨";
 "Unpin" = "고정 해제";
 "Pin" = "고정";
 "No chat history" = "채팅 기록 없음";

@@ -17,13 +17,9 @@ public struct ChatView<InputAccessory: View>: View {
         VStack(spacing: 0) {
             messageScrollView
 
-            if chatBridge.isReadOnly {
-                readOnlyBanner
-            } else {
-                InputBarView(accessory: inputAccessory) {
-                    if windowState.selectedProject != nil && !shortcuts.isEmpty {
-                        shortcutBar
-                    }
+            InputBarView(accessory: inputAccessory) {
+                if windowState.selectedProject != nil && !shortcuts.isEmpty {
+                    shortcutBar
                 }
             }
 
@@ -77,34 +73,6 @@ public struct ChatView<InputAccessory: View>: View {
             .padding(.vertical, 6)
         }
         .background(ClaudeTheme.background)
-    }
-
-    // MARK: - Read-only Banner
-
-    private var readOnlyBanner: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "lock.fill")
-                .font(.system(size: ClaudeTheme.size(13), weight: .semibold))
-                .foregroundStyle(ClaudeTheme.textSecondary)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(String(localized: "Read-only session", bundle: .module))
-                    .font(.system(size: ClaudeTheme.size(13), weight: .semibold))
-                    .foregroundStyle(ClaudeTheme.textPrimary)
-                Text(String(localized: "This session was created before CLI sync and can't be continued. Start a new chat to keep the conversation in sync with the CLI.", bundle: .module))
-                    .font(.system(size: ClaudeTheme.size(11)))
-                    .foregroundStyle(ClaudeTheme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(ClaudeTheme.codeBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .padding(.horizontal, 8)
-        .padding(.bottom, 12)
     }
 
     private func executeShortcut(_ shortcut: ChatShortcut) {

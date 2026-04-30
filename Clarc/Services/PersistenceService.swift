@@ -180,14 +180,16 @@ actor PersistenceService {
 
     /// Synchronous load for legacy json sessions. Kept available for the few
     /// MainActor sites that still call it directly.
-    nonisolated func loadLegacySessionSync(projectId: UUID, sessionId: String) -> ChatSession? {
-        let url = baseURL
+    nonisolated func legacySessionURL(projectId: UUID, sessionId: String) -> URL {
+        baseURL
             .appendingPathComponent("sessions")
             .appendingPathComponent(projectId.uuidString)
             .appendingPathComponent("\(sessionId).json")
-        let fm = FileManager.default
-        guard fm.fileExists(atPath: url.path),
-              let data = try? Data(contentsOf: url) else { return nil }
+    }
+
+    nonisolated func loadLegacySessionSync(projectId: UUID, sessionId: String) -> ChatSession? {
+        let url = legacySessionURL(projectId: projectId, sessionId: sessionId)
+        guard let data = try? Data(contentsOf: url) else { return nil }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return try? decoder.decode(ChatSession.self, from: data)

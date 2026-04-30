@@ -34,9 +34,6 @@
 "Notifications" = "Notifications";
 "Notify when response completes" = "Notify when response completes";
 "Sends a system notification while Clarc is in the background." = "Sends a system notification while Clarc is in the background.";
-"Claude Code Session Sync" = "Claude Code Session Sync";
-"Sync sessions with Claude Code CLI" = "Sync sessions with Claude Code CLI";
-"When on, sessions in ~/.claude/projects/ appear in history and new sessions are shared with the terminal CLI. When off, only Clarc-internal sessions are used." = "When on, sessions in ~/.claude/projects/ appear in history and new sessions are shared with the terminal CLI. When off, only Clarc-internal sessions are used.";
 "Open Source" = "Open Source";
 "Response complete" = "Response complete";
 
@@ -125,7 +122,6 @@
 "Session name" = "Session name";
 "Rename" = "Rename";
 "Response in progress in the background" = "Response in progress in the background";
-"Synced with Claude Code CLI" = "Synced with Claude Code CLI";
 "Unpin" = "Unpin";
 "Pin" = "Pin";
 "No chat history" = "No chat history";

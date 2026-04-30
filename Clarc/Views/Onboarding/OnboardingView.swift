@@ -9,17 +9,11 @@ struct OnboardingView: View {
     @State private var cliError: String?
 
     var body: some View {
-        @Bindable var appState = appState
         VStack(spacing: 0) {
             Spacer()
 
-            VStack(spacing: 24) {
-                cliCheckStep
-                if cliInstalled {
-                    sessionSyncStep(isOn: $appState.cliSessionSyncEnabled)
-                }
-            }
-            .frame(maxWidth: 460)
+            cliCheckStep
+                .frame(maxWidth: 460)
 
             Spacer()
 
@@ -27,7 +21,7 @@ struct OnboardingView: View {
                 .padding(.bottom, 24)
         }
         .padding(.horizontal, 40)
-        .frame(width: 560, height: cliInstalled ? 520 : 420)
+        .frame(width: 560, height: 420)
         .background(ClaudeTheme.background)
         .task {
             await checkCLI()
@@ -102,29 +96,6 @@ struct OnboardingView: View {
                 .padding(.top, 4)
             }
         }
-    }
-
-    // MARK: - Session Sync Step
-
-    private func sessionSyncStep(isOn: Binding<Bool>) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Toggle(isOn: isOn) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Sync sessions with Claude Code CLI")
-                        .font(.system(size: ClaudeTheme.size(13), weight: .semibold))
-                        .foregroundStyle(ClaudeTheme.textPrimary)
-                    Text("Share session history with the terminal CLI in ~/.claude/projects/. Turn off to keep Clarc sessions separate. You can change this later in Settings.")
-                        .font(.system(size: ClaudeTheme.size(11)))
-                        .foregroundStyle(ClaudeTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .toggleStyle(.switch)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(ClaudeTheme.codeBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     // MARK: - Navigation

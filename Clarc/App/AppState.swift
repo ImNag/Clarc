@@ -200,27 +200,6 @@ final class AppState {
         didSet { UserDefaults.standard.set(focusMode, forKey: "focusMode") }
     }
 
-    // MARK: - CLI Session Sync
-
-    var cliSessionSyncEnabled: Bool = (UserDefaults.standard.object(forKey: "cliSessionSyncEnabled") as? Bool) ?? false {
-        didSet {
-            UserDefaults.standard.set(cliSessionSyncEnabled, forKey: "cliSessionSyncEnabled")
-            Task { [weak self] in
-                guard let self else { return }
-                let summaries = await self.mergedSummariesAcrossProjects()
-                if self.allSessionSummaries != summaries {
-                    self.allSessionSummaries = summaries
-                }
-            }
-        }
-    }
-
-    /// Origin used when a session has no recorded origin yet — driven by the
-    /// user's CLI sync preference.
-    private var defaultNewSessionOrigin: SessionOrigin {
-        cliSessionSyncEnabled ? .cliBacked : .legacyClarc
-    }
-
     // MARK: - Attachment Auto-Preview Settings
 
     private static let autoPreviewSettingsKey = "attachmentAutoPreviewSettings"
@@ -476,6 +455,15 @@ final class AppState {
         }
 
         // Permission request routing is handled per-window in initializeWindow's listener.
+
+        // Migrate legacy Clarc JSON sessions to CLI-compatible jsonl so they can
+        // be resumed with `claude --resume`. Runs in the background; already-migrated
+        // sessions (.json.migrated suffix) are skipped automatically.
+        let legacySummaries = allSessionSummaries.filter { $0.origin == .legacyClarc }
+        Task.detached(priority: .background) { [weak self] in
+            guard let self else { return }
+            await self.migrateLegacySessions(legacySummaries)
+        }
     }
 
     /// Per-window initialization — restore selected project and load session history
@@ -580,31 +568,8 @@ final class AppState {
                 Task { @MainActor in observeSettings() }
             }
         }
-        func observeReadOnly() {
-            withObservationTracking {
-                // Guarded write: @Observable doesn't equality-short-circuit, and
-                // this loop re-fires whenever allSessionSummaries mutates (every
-                // streaming tick). Skipping no-op assignments avoids dirtying
-                // ChatView on each tick.
-                let value = self.isCurrentSessionReadOnly(in: window)
-                if bridge.isReadOnly != value {
-                    bridge.isReadOnly = value
-                }
-            } onChange: {
-                Task { @MainActor in observeReadOnly() }
-            }
-        }
         Task { @MainActor in observeStream() }
         Task { @MainActor in observeSettings() }
-        Task { @MainActor in observeReadOnly() }
-    }
-
-    /// True when CLI sync is on and the current session is a pre-sync legacy
-    /// Clarc session — `--resume` against a missing CLI jsonl would silently
-    /// lose context, so we surface a read-only banner instead.
-    private func isCurrentSessionReadOnly(in window: WindowState) -> Bool {
-        guard cliSessionSyncEnabled, let sid = window.currentSessionId else { return false }
-        return allSessionSummaries.first(where: { $0.id == sid })?.origin == .legacyClarc
     }
 
     // MARK: - Edit & Resend
@@ -641,17 +606,6 @@ final class AppState {
         // created. Re-attempt the watch (no-op if already active).
         if let project = window.selectedProject {
             watchProjectDirectory(project)
-        }
-
-        // S3: refuse to send into legacy Clarc-only sessions while CLI sync is
-        // enabled. They have no matching jsonl in `~/.claude/projects/`, so
-        // `--resume {sid}` would either spawn a new empty CLI session or error
-        // out — both lose context. The chat UI surfaces a read-only banner for
-        // these sessions; this is a defensive guard for non-UI entry points
-        // (slash commands, terminal commands).
-        if isCurrentSessionReadOnly(in: window) {
-            logger.warning("Refusing to send to read-only legacy session \(window.currentSessionId ?? "nil", privacy: .public)")
-            return
         }
 
         // S2: warn (in logs) if another process touched the same jsonl very
@@ -884,7 +838,7 @@ final class AppState {
 
         if isNewSession {
             let titleText = prompt.count > 50 ? String(prompt.prefix(50)) + "..." : prompt
-            let placeholder = ChatSession(id: sessionKey, projectId: project.id, title: titleText, messages: [], origin: defaultNewSessionOrigin)
+            let placeholder = ChatSession(id: sessionKey, projectId: project.id, title: titleText, messages: [], origin: .cliBacked)
             allSessionSummaries.insert(placeholder.summary, at: 0)
         } else {
             await saveCurrentSession(in: window)
@@ -1092,7 +1046,7 @@ final class AppState {
                                 } else {
                                     title = "New Session"
                                 }
-                                let newSession = ChatSession(id: sid, projectId: project.id, title: title, messages: [], updatedAt: Date(), origin: defaultNewSessionOrigin)
+                                let newSession = ChatSession(id: sid, projectId: project.id, title: title, messages: [], updatedAt: Date(), origin: .cliBacked)
                                 allSessionSummaries.insert(newSession.summary, at: 0)
                             }
                         }
@@ -1675,14 +1629,62 @@ final class AppState {
 
     // MARK: - Session Management
 
-    /// Combined CLI-backed + legacy summaries for one project. CLI wins on duplicate id.
-    /// When CLI session sync is disabled, only legacy summaries are returned.
-    private func mergedSummaries(for project: Project) async -> [ChatSession.Summary] {
-        let syncEnabled = cliSessionSyncEnabled
-        async let legacy = persistence.loadLegacySessions(for: project.id)
-        guard syncEnabled else {
-            return await legacy.sorted { $0.updatedAt > $1.updatedAt }
+    /// One-time migration: converts legacy Clarc JSON sessions to CLI-compatible jsonl files.
+    /// Skips sessions whose jsonl already exists in ~/.claude/projects/{enc(cwd)}/.
+    /// Renames successfully converted .json → .json.migrated so they are not re-processed.
+    private func migrateLegacySessions(_ legacySummaries: [ChatSession.Summary]) async {
+        guard !legacySummaries.isEmpty else { return }
+
+        let projectsSnapshot = await MainActor.run { self.projects }
+        let projectMap = Dictionary(uniqueKeysWithValues: projectsSnapshot.map { ($0.id, $0) })
+
+        let fm = FileManager.default
+        var cwdDirCache: [String: URL] = [:]
+
+        for summary in legacySummaries {
+            guard let project = projectMap[summary.projectId] else { continue }
+            let cwd = project.path
+
+            if cwdDirCache[cwd] == nil {
+                cwdDirCache[cwd] = await cliStore.directory(forCwd: cwd)
+            }
+            let destDir = cwdDirCache[cwd]!
+            let destURL = destDir.appendingPathComponent("\(summary.id).jsonl")
+            guard !fm.fileExists(atPath: destURL.path) else { continue }
+
+            guard let session = persistence.loadLegacySessionSync(projectId: summary.projectId, sessionId: summary.id) else { continue }
+
+            do {
+                let jsonlData = try LegacyMigrator.toJSONL(session: session, cwd: cwd)
+                try fm.createDirectory(at: destDir, withIntermediateDirectories: true)
+                try jsonlData.write(to: destURL, options: .atomic)
+
+                await metaStore.save(
+                    sessionId: summary.id,
+                    meta: SessionMetaStore.Meta(
+                        title: summary.title == ChatSession.defaultTitle ? nil : summary.title,
+                        isPinned: summary.isPinned,
+                        model: summary.model,
+                        effort: summary.effort,
+                        permissionMode: summary.permissionMode,
+                        updatedAt: summary.updatedAt
+                    )
+                )
+
+                let sourceURL = persistence.legacySessionURL(projectId: summary.projectId, sessionId: summary.id)
+                let migratedURL = sourceURL.deletingPathExtension().appendingPathExtension("json.migrated")
+                try fm.moveItem(at: sourceURL, to: migratedURL)
+                logger.info("Migrated legacy session \(summary.id, privacy: .public) to CLI jsonl")
+            } catch {
+                logger.error("Failed to migrate session \(summary.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
         }
+    }
+
+    /// CLI-backed summaries for one project, with any not-yet-migrated legacy sessions merged in.
+    /// CLI wins on duplicate id. Legacy sessions disappear once migrated to jsonl.
+    private func mergedSummaries(for project: Project) async -> [ChatSession.Summary] {
+        async let legacy = persistence.loadLegacySessions(for: project.id)
         async let cli = cliStore.loadSummaries(cwd: project.path, projectId: project.id)
         let (cliResult, legacyResult) = await (cli, legacy)
         let cliIDs = Set(cliResult.map { $0.id })
@@ -1690,15 +1692,9 @@ final class AppState {
             .sorted { $0.updatedAt > $1.updatedAt }
     }
 
-    /// Combined CLI-backed + legacy summaries across all known projects. Loads
-    /// the meta sidecar once and fans out per-project sniffing concurrently.
-    /// When CLI session sync is disabled, only legacy summaries are returned.
+    /// CLI-backed summaries across all projects, with any not-yet-migrated legacy sessions merged in.
     private func mergedSummariesAcrossProjects() async -> [ChatSession.Summary] {
-        let syncEnabled = cliSessionSyncEnabled
         async let legacyAcrossAll = persistence.loadAllLegacySessionSummaries()
-        guard syncEnabled else {
-            return await legacyAcrossAll.sorted { $0.updatedAt > $1.updatedAt }
-        }
         async let metaCache = cliStore.loadMetaCache()
         let (legacy, meta) = await (legacyAcrossAll, metaCache)
 
@@ -2187,7 +2183,7 @@ final class AppState {
             ?? ChatSession.Summary(
                 id: sessionId, projectId: projectId, title: "",
                 createdAt: Date(), updatedAt: Date(), isPinned: false,
-                origin: .legacyClarc
+                origin: .cliBacked
             )
 
         Task.detached(priority: .userInitiated) { [weak self] in
@@ -2233,7 +2229,7 @@ final class AppState {
         let sessionModel = sessionStates[sessionId]?.model
         let sessionEffort = sessionStates[sessionId]?.effort
         let sessionPermissionMode = sessionStates[sessionId]?.permissionMode
-        let origin = allSessionSummaries.first(where: { $0.id == sessionId })?.origin ?? defaultNewSessionOrigin
+        let origin = allSessionSummaries.first(where: { $0.id == sessionId })?.origin ?? .cliBacked
         let session = ChatSession(id: sessionId, projectId: projectId, title: title, messages: messages, updatedAt: lastResponseDate(from: messages), model: sessionModel, effort: sessionEffort, permissionMode: sessionPermissionMode, origin: origin)
 
         do {

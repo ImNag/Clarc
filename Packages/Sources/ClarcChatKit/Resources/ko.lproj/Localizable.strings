@@ -255,6 +255,3 @@
 // MARK: - AskUserQuestionView
 "Question" = "질문";
 
-// MARK: - ChatView
-"Read-only session" = "읽기 전용 세션";
-"This session was created before CLI sync and can't be continued. Start a new chat to keep the conversation in sync with the CLI." = "이 세션은 CLI 동기화 이전에 만들어져 이어서 진행할 수 없습니다. 새 채팅을 시작하면 CLI와 계속 동기화됩니다.";

@@ -20,11 +20,6 @@ public final class ChatBridge {
     public var sessionStats: ChatSessionStats = ChatSessionStats()
     public var autoPreviewSettings: AttachmentAutoPreviewSettings = AttachmentAutoPreviewSettings()
 
-    /// True when the current session can be viewed but not extended — set for
-    /// pre-sync legacy Clarc sessions while CLI sync is on, since `--resume`
-    /// against a missing CLI jsonl would silently lose context.
-    public var isReadOnly: Bool = false
-
     // MARK: - Action Handlers (set up by the app target)
 
     public var sendHandler: (() async -> Void)?

@@ -26,7 +26,7 @@ public struct ChatSession: Identifiable, Codable, Sendable {
         model: String? = nil,
         effort: String? = nil,
         permissionMode: PermissionMode? = nil,
-        origin: SessionOrigin = .legacyClarc
+        origin: SessionOrigin = .cliBacked
     ) {
         self.id = id
         self.projectId = projectId
@@ -82,7 +82,7 @@ public struct ChatSession: Identifiable, Codable, Sendable {
             model: String? = nil,
             effort: String? = nil,
             permissionMode: PermissionMode? = nil,
-            origin: SessionOrigin = .legacyClarc
+            origin: SessionOrigin = .cliBacked
         ) {
             self.id = id
             self.projectId = projectId
