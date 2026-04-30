@@ -24,8 +24,8 @@ public enum PickerExposer {
     /// Rewrite a single jsonl file. No-op if the session is still live.
     public static func normalize(jsonlAt url: URL) async {
         let sid = url.deletingPathExtension().lastPathComponent
-        if liveSessionIds().contains(sid) { return }
         await Task.detached(priority: .utility) {
+            if liveSessionIds().contains(sid) { return }
             normalizeSync(jsonlAt: url)
         }.value
     }

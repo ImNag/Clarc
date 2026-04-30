@@ -385,8 +385,7 @@ public actor CLISessionStore {
     /// Rewrite the session's jsonl so it appears in the `claude --resume` picker.
     /// Delegates to ``PickerExposer``; uses the cwd index for accurate URL resolution.
     public func exposeToPicker(sid: String, cwd: String) async {
-        let url = await directory(forCwd: cwd).appendingPathComponent("\(sid).jsonl")
-        await PickerExposer.normalize(jsonlAt: url)
+        await PickerExposer.normalize(jsonlAt: await jsonlURL(sid: sid, cwd: cwd))
     }
 
     // MARK: - Deletion

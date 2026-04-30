@@ -22,8 +22,6 @@ actor ClaudeService {
     /// Per-stream stderr accumulator — used to deliver error messages when process exits without a response
     private var stderrBuffers: [UUID: String] = [:]
 
-    /// Latest session_id observed in stream output, per streamId.
-    /// Consumed by terminationHandler to normalize just that jsonl.
     private var streamSessionIds: [UUID: String] = [:]
 
     private let cliStore: CLISessionStore
