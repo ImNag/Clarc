@@ -222,6 +222,45 @@ final class AppState {
     /// Keyed by projectId; consumed once applied.
     var pendingNotificationSession: [UUID: String] = [:]
 
+    /// Ref-counted set of projectIds with at least one open dedicated project window.
+    /// Used to decide whether a notification tap should route to the main window or
+    /// hand off to an existing project window via `pendingNotificationSession`.
+    @ObservationIgnored
+    var openProjectWindowCounts: [UUID: Int] = [:]
+
+    func registerOpenProjectWindow(_ projectId: UUID) {
+        openProjectWindowCounts[projectId, default: 0] += 1
+    }
+
+    func unregisterOpenProjectWindow(_ projectId: UUID) {
+        guard let count = openProjectWindowCounts[projectId] else { return }
+        if count <= 1 {
+            openProjectWindowCounts.removeValue(forKey: projectId)
+        } else {
+            openProjectWindowCounts[projectId] = count - 1
+        }
+    }
+
+    func hasOpenProjectWindow(for projectId: UUID) -> Bool {
+        (openProjectWindowCounts[projectId] ?? 0) > 0
+    }
+
+    /// Routes a notification tap to the right window without spawning a new one.
+    /// Hands off to an existing project window if one is open for that project;
+    /// otherwise navigates the supplied main window in place.
+    func handleNotificationTap(projectId: UUID, sessionId: String, mainWindow: WindowState) {
+        if hasOpenProjectWindow(for: projectId) {
+            pendingNotificationSession[projectId] = sessionId
+            return
+        }
+        if mainWindow.selectedProject?.id == projectId {
+            guard mainWindow.currentSessionId != sessionId else { return }
+            mainWindow.currentSessionId = sessionId
+        } else {
+            selectSession(id: sessionId, in: mainWindow)
+        }
+    }
+
     /// Sets the model for the current session and persists it in the session state.
     func setSessionModel(_ model: String, in window: WindowState) {
         window.sessionModel = model
